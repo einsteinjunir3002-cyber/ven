@@ -70,19 +70,45 @@ export default function NoteReaderPage({ params }: { params: Promise<{ id: strin
   const [selectedText, setSelectedText] = useState('');
 
   useEffect(() => {
-    // Check if custom uploaded note exists in localStorage
-    try {
-      const storedNotes = localStorage.getItem(`note_${materialId}`);
-      if (storedNotes) {
-        const parsed = JSON.parse(storedNotes);
-        if (parsed.pages && parsed.pages.length > 0) {
-          setPages(parsed.pages);
-          if (parsed.title) setNoteTitle(parsed.title);
+    async function loadMaterial() {
+      try {
+        const res = await fetch(`/api/materials/${materialId}`);
+        if (res.ok) {
+          const data = await res.json();
+          if (data.material?.title) {
+            setNoteTitle(data.material.title);
+          }
+          if (Array.isArray(data.pages) && data.pages.length > 0) {
+            setPages(
+              data.pages.map((p: { page_number: number; label?: string; content: string }) => ({
+                pageNumber: p.page_number,
+                heading: p.label || `Page ${p.page_number}`,
+                content: p.content,
+                concept: data.material.topics?.[0] || 'Core Concept',
+              }))
+            );
+            return;
+          }
         }
+      } catch {
+        // network fallback to local storage
       }
-    } catch {
-      // fallback to defaults
+
+      try {
+        const storedNotes = localStorage.getItem(`note_${materialId}`);
+        if (storedNotes) {
+          const parsed = JSON.parse(storedNotes);
+          if (parsed.pages && parsed.pages.length > 0) {
+            setPages(parsed.pages);
+            if (parsed.title) setNoteTitle(parsed.title);
+          }
+        }
+      } catch {
+        // fallback to defaults
+      }
     }
+
+    loadMaterial();
   }, [materialId]);
 
   // Handle text selection

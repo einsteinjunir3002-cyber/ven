@@ -28,39 +28,8 @@ interface Material {
   last_studied_at?: string;
 }
 
-const INITIAL_MATERIALS: Material[] = [
-  {
-    id: 'mat-1',
-    title: 'Biology: Human Reproduction System',
-    subject: 'Biology',
-    source_type: 'pdf',
-    page_count: 12,
-    topics: ['Gametogenesis', 'Fertilization', 'Hormonal Regulation'],
-    created_at: new Date().toISOString(),
-    last_studied_at: new Date().toISOString(),
-  },
-  {
-    id: 'mat-2',
-    title: 'Chemistry: Chemical Bonding & Structure',
-    subject: 'Chemistry',
-    source_type: 'docx',
-    page_count: 8,
-    topics: ['Ionic Bonding', 'Covalent Lattice', 'VSEPR Theory'],
-    created_at: new Date(Date.now() - 86400000 * 2).toISOString(),
-  },
-  {
-    id: 'mat-3',
-    title: 'Physics: Newton Laws of Motion',
-    subject: 'Physics',
-    source_type: 'pptx',
-    page_count: 15,
-    topics: ['Friction', 'Momentum', 'Free Body Diagrams'],
-    created_at: new Date(Date.now() - 86400000 * 5).toISOString(),
-  },
-];
-
 export default function LibraryPage() {
-  const [materials, setMaterials] = useState<Material[]>(INITIAL_MATERIALS);
+  const [materials, setMaterials] = useState<Material[]>([]);
   const [search, setSearch] = useState('');
   const [selectedSubject, setSelectedSubject] = useState<string>('all');
   const [sortBy, setSortBy] = useState<'recent' | 'title'>('recent');
@@ -71,18 +40,46 @@ export default function LibraryPage() {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   useEffect(() => {
-    // Load persisted materials from localStorage if available
-    try {
-      const saved = localStorage.getItem('venessa_materials');
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          setMaterials(parsed);
+    async function loadMaterials() {
+      // 1. First check Supabase via /api/materials
+      try {
+        const res = await fetch('/api/materials');
+        if (res.ok) {
+          const data = await res.json();
+          if (Array.isArray(data.materials) && data.materials.length > 0) {
+            const formatted = data.materials.map((m: Record<string, unknown>) => ({
+              id: m.id as string,
+              title: (m.title as string) || 'Study Notes',
+              subject: (m.subject as string) || 'General',
+              source_type: (m.source_type as string) || 'pdf',
+              page_count: (m.page_count as number) || 1,
+              topics: Array.isArray(m.topics) ? (m.topics as string[]) : [],
+              created_at: (m.created_at as string) || new Date().toISOString(),
+              last_studied_at: m.last_studied_at as string | undefined,
+            }));
+            setMaterials(formatted);
+            return;
+          }
         }
+      } catch {
+        // Fallback to local storage
       }
-    } catch {
-      // ignore
+
+      // 2. Fallback to localStorage
+      try {
+        const saved = localStorage.getItem('venessa_materials');
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            setMaterials(parsed);
+          }
+        }
+      } catch {
+        // empty initial state
+      }
     }
+
+    loadMaterials();
 
     // Check if query params specified upload action
     const urlParams = new URLSearchParams(window.location.search);

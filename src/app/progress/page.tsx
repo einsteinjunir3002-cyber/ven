@@ -1,10 +1,51 @@
 'use client';
 
-import React, { useState } from 'react';
-import { LineChart, Trophy, Target, BookOpen, Clock, Flame, Calendar } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import Link from 'next/link';
+import { LineChart, Trophy, Target, BookOpen, Clock, Flame, Calendar, ArrowRight } from 'lucide-react';
+
+interface AttemptRecord {
+  id: string;
+  quizId: string;
+  title: string;
+  subject: string;
+  topic: string;
+  score: number;
+  maxScore: number;
+  percentage: number;
+  date: string;
+}
 
 export default function ProgressPage() {
   const [range, setRange] = useState<'7d' | '30d' | 'all'>('7d');
+  const [attempts, setAttempts] = useState<AttemptRecord[]>([]);
+
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem('venessa_attempts');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) {
+          setAttempts(parsed);
+        }
+      }
+    } catch {
+      // ignore
+    }
+  }, []);
+
+  const totalQuizzes = attempts.length;
+  const avgScore = totalQuizzes > 0
+    ? Math.round(attempts.reduce((sum, a) => sum + (Number(a.percentage) || 0), 0) / totalQuizzes)
+    : 0;
+  const totalQuestions = attempts.reduce((sum, a) => sum + (Number(a.maxScore) || 5), 0);
+  const studyHours = Math.max(Math.round((totalQuestions * 1.2) / 6) / 10, totalQuizzes > 0 ? 0.2 : 0);
+
+  // Derive trend data points from recent attempts
+  const recentScores = attempts.slice(0, 7).reverse().map((a) => a.percentage);
+  const scoreTrendPoints = recentScores.length >= 2
+    ? recentScores
+    : [avgScore || 70, avgScore || 85];
 
   return (
     <div className="space-y-6 max-w-3xl mx-auto pb-24">
@@ -40,24 +81,47 @@ export default function ProgressPage() {
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <div className="p-4 rounded-2xl bg-[var(--bg-surface)] border border-[var(--border-subtle)] space-y-1">
           <span className="text-xs text-[var(--text-muted)]">Average Score</span>
-          <p className="font-display font-bold text-2xl text-[var(--brand-primary)]">86%</p>
+          <p className="font-display font-bold text-2xl text-[var(--brand-primary)]">
+            {totalQuizzes > 0 ? `${avgScore}%` : '—'}
+          </p>
         </div>
 
         <div className="p-4 rounded-2xl bg-[var(--bg-surface)] border border-[var(--border-subtle)] space-y-1">
           <span className="text-xs text-[var(--text-muted)]">Quizzes Taken</span>
-          <p className="font-display font-bold text-2xl text-[var(--text-primary)]">14</p>
+          <p className="font-display font-bold text-2xl text-[var(--text-primary)]">{totalQuizzes}</p>
         </div>
 
         <div className="p-4 rounded-2xl bg-[var(--bg-surface)] border border-[var(--border-subtle)] space-y-1">
           <span className="text-xs text-[var(--text-muted)]">Questions Answered</span>
-          <p className="font-display font-bold text-2xl text-[var(--text-primary)]">128</p>
+          <p className="font-display font-bold text-2xl text-[var(--text-primary)]">{totalQuestions}</p>
         </div>
 
         <div className="p-4 rounded-2xl bg-[var(--bg-surface)] border border-[var(--border-subtle)] space-y-1">
           <span className="text-xs text-[var(--text-muted)]">Study Time</span>
-          <p className="font-display font-bold text-2xl text-[var(--text-primary)]">8.4 hrs</p>
+          <p className="font-display font-bold text-2xl text-[var(--text-primary)]">{studyHours} hrs</p>
         </div>
       </div>
+
+      {totalQuizzes === 0 && (
+        <div className="p-6 rounded-3xl bg-[var(--bg-surface)] border border-[var(--border-subtle)] text-center space-y-3">
+          <div className="w-12 h-12 rounded-2xl bg-[var(--brand-light)] text-[var(--brand-primary)] flex items-center justify-center mx-auto">
+            <Target className="w-6 h-6" />
+          </div>
+          <h3 className="font-display font-bold text-base text-[var(--text-primary)]">
+            Ready to start testing your knowledge?
+          </h3>
+          <p className="text-xs text-[var(--text-muted)] max-w-sm mx-auto">
+            Take your first assessment in Practice Studio. Your real scores, performance graphs, and weak areas will update live right here!
+          </p>
+          <Link
+            href="/practice"
+            className="inline-flex min-touch-target px-4 py-2 bg-[var(--brand-primary)] text-white font-semibold text-xs rounded-xl items-center gap-1.5"
+          >
+            <span>Start Your First Assessment</span>
+            <ArrowRight className="w-4 h-4" />
+          </Link>
+        </div>
+      )}
 
       {/* Accessible SVG Score Trend Chart (Readable at 360px) */}
       <div className="p-5 rounded-3xl bg-[var(--bg-surface)] border border-[var(--border-subtle)] space-y-4 shadow-sm">

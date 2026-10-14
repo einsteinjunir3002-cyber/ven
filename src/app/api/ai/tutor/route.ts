@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { generateStream } from '@/server/ai/provider';
 import { TUTOR_SYSTEM_PROMPT } from '@/server/ai/prompts/tutor';
+import { generateDynamicTutorResponse } from '@/server/ai/generators/dynamic_tutor';
 
 export async function POST(request: Request) {
   try {
@@ -21,20 +22,27 @@ export async function POST(request: Request) {
       fullPrompt = `[Attached Context - ${context.type}: ${context.label}]\nContent: ${context.content || ''}\n\nUser Question: ${message}`;
     }
 
-    let fullAnswer = '';
-    await generateStream({
-      prompt: fullPrompt,
-      systemInstruction: TUTOR_SYSTEM_PROMPT,
-      onChunk: (chunk) => {
-        fullAnswer += chunk;
-      },
-    });
+    try {
+      let fullAnswer = '';
+      await generateStream({
+        prompt: fullPrompt,
+        systemInstruction: TUTOR_SYSTEM_PROMPT,
+        onChunk: (chunk) => {
+          fullAnswer += chunk;
+        },
+      });
 
-    return NextResponse.json({ answer: fullAnswer || 'I am ready to help you understand your notes!' });
+      if (fullAnswer.trim()) {
+        return NextResponse.json({ answer: fullAnswer });
+      }
+    } catch {
+      // Intelligent pedagogical fallback when AI provider is unconfigured
+    }
+
+    const answer = generateDynamicTutorResponse({ message, context });
+    return NextResponse.json({ answer });
   } catch (err) {
-    // Fallback response if API key is not configured in dev
-    return NextResponse.json({
-      answer: 'I am your AI study tutor! When you ask about your notes, I will break down key concepts into simple language and provide real-world examples.',
-    });
+    const answer = generateDynamicTutorResponse({ message: 'Study assistance question' });
+    return NextResponse.json({ answer });
   }
 }

@@ -17,42 +17,15 @@ interface MistakeItem {
   status: 'active' | 'understood';
 }
 
-const INITIAL_MISTAKES: MistakeItem[] = [
-  {
-    id: 'm-1',
-    topic: 'Photosynthesis',
-    concept: 'Light-Independent Reaction',
-    prompt: 'Where do the light-independent reactions (Calvin Cycle) take place in plant cells?',
-    userAnswer: 'Thylakoid Membrane',
-    correctAnswer: 'Stroma of the chloroplast',
-    explanation: 'Light-dependent reactions occur in the thylakoid membranes, while light-independent reactions (Calvin Cycle) occur in the stroma fluid.',
-    rememberTip: 'Stroma = Fluid Synthesis Space; Thylakoid = Light Trapping Stack.',
-    timesMissed: 2,
-    status: 'active',
-  },
-  {
-    id: 'm-2',
-    topic: 'Human Reproduction',
-    concept: 'Fertilization Location',
-    prompt: 'In which part of the female reproductive tract does fertilization normally take place?',
-    userAnswer: 'Uterine cavity',
-    correctAnswer: 'Ampulla of the fallopian tube',
-    explanation: 'Sperm fertilize the ovum within the upper third of the fallopian tube (ampulla) before moving to implant in the uterine lining.',
-    rememberTip: 'Fertilization happens in the Tube, Implantation happens in the Uterus.',
-    timesMissed: 1,
-    status: 'active',
-  },
-];
-
 export default function MistakesPage() {
-  const [mistakes, setMistakes] = useState<MistakeItem[]>(INITIAL_MISTAKES);
+  const [mistakes, setMistakes] = useState<MistakeItem[]>([]);
 
   useEffect(() => {
     try {
       const saved = localStorage.getItem('venessa_mistakes');
       if (saved) {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) {
+        if (Array.isArray(parsed)) {
           setMistakes(parsed);
         }
       }

@@ -17,16 +17,28 @@ import { TeachTopicResult } from '@/server/ai/prompts/teach_topic';
 
 const SUGGESTED_SUBJECTS = [
   {
-    subject: 'Cell Biology',
-    topics: ['Cell Membrane Structure', 'Mitosis & Meiosis', 'Organelles & Functions', 'Cellular Respiration'],
+    subject: 'Physics & Mechanics',
+    topics: ['Newton Laws of Motion', 'Kinematics & Acceleration', 'Work & Energy Conservation', 'Electromagnetism & Circuits'],
   },
   {
-    subject: 'Genetics',
-    topics: ['DNA Replication', 'Mendelian Inheritance', 'Protein Synthesis (Transcription/Translation)', 'Gene Mutations'],
+    subject: 'Mathematics & Calculus',
+    topics: ['Derivatives & Rates of Change', 'Quadratic Equations & Roots', 'Definite Integrals', 'Trigonometric Identities'],
   },
   {
-    subject: 'Human Physiology',
-    topics: ['Nervous System Impulse Transmission', 'Circulatory System & Heart Cycle', 'Endocrine Hormones', 'Digestive Enzyme Catalysis'],
+    subject: 'Chemistry & Molecular Science',
+    topics: ['Chemical Bonding & Polarity', 'Periodic Trends & Orbitals', 'Thermodynamics & Enthalpy', 'Acid-Base Titration & pH'],
+  },
+  {
+    subject: 'Cell Biology & Genetics',
+    topics: ['Cell Membrane Structure', 'Mitosis & Meiosis', 'DNA Replication', 'Cellular Respiration & ATP'],
+  },
+  {
+    subject: 'Computer Science & Data',
+    topics: ['Binary Search & Time Complexity', 'Data Structures: Arrays vs Trees', 'Recursion & Induction', 'Database Indexing'],
+  },
+  {
+    subject: 'Economics & History',
+    topics: ['Supply & Demand Elasticity', 'Fiscal vs Monetary Policy', 'The Industrial Revolution', 'Causes of World War I'],
   },
 ];
 

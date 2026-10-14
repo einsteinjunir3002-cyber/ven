@@ -33,8 +33,10 @@ export default function DashboardPage() {
   const [queryText, setQueryText] = useState('');
   const [isRouting, setIsRouting] = useState(false);
   const [intentConfirm, setIntentConfirm] = useState<IntentResult | null>(null);
+  const [recentAttempts, setRecentAttempts] = useState<Array<{ id: string; quizId: string; title: string; subject: string; score: number; maxScore: number; percentage: number; date: string }>>([]);
+  const [recentMaterials, setRecentMaterials] = useState<Array<{ id: string; title: string; subject: string; page_count: number }>>([]);
 
-  // Time-aware greeting and session name
+  // Time-aware greeting, session name, and live local records
   useEffect(() => {
     const hour = new Date().getHours();
     if (hour < 12) setGreeting('Good morning');
@@ -46,6 +48,16 @@ export default function DashboardPage() {
       if (sess) {
         const parsed = JSON.parse(sess);
         if (parsed.name) setUserName(parsed.name.split(' ')[0] || parsed.name);
+      }
+      const atts = localStorage.getItem('venessa_attempts');
+      if (atts) {
+        const parsedAtts = JSON.parse(atts);
+        if (Array.isArray(parsedAtts)) setRecentAttempts(parsedAtts);
+      }
+      const mats = localStorage.getItem('venessa_materials');
+      if (mats) {
+        const parsedMats = JSON.parse(mats);
+        if (Array.isArray(parsedMats)) setRecentMaterials(parsedMats);
       }
     } catch {
       // ignore
@@ -228,37 +240,100 @@ export default function DashboardPage() {
         </Link>
       </div>
 
-      {/* Continue Studying Card */}
-      <div className="p-5 rounded-3xl bg-[var(--bg-surface)] border border-[var(--border-subtle)] shadow-sm space-y-3">
-        <div className="flex items-center justify-between">
-          <span className="text-xs font-semibold text-[var(--brand-primary)] uppercase tracking-wider">
-            Continue Studying
-          </span>
-          <span className="text-xs text-[var(--text-muted)] flex items-center gap-1">
-            <Clock className="w-3.5 h-3.5" /> 2 hours ago
-          </span>
-        </div>
+      {/* Continue Studying / Active Learning Card */}
+      {recentAttempts.length > 0 ? (
+        <div className="p-5 rounded-3xl bg-[var(--bg-surface)] border border-[var(--border-subtle)] shadow-sm space-y-3">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-semibold text-[var(--brand-primary)] uppercase tracking-wider">
+              Latest Assessment
+            </span>
+            <span className="text-xs text-[var(--text-muted)] flex items-center gap-1">
+              <Clock className="w-3.5 h-3.5" /> Recent
+            </span>
+          </div>
 
-        <div>
-          <h2 className="font-display text-lg font-bold text-[var(--text-primary)]">
-            Biology: Human Reproduction System
+          <div>
+            <h2 className="font-display text-lg font-bold text-[var(--text-primary)]">
+              {recentAttempts[0].title}
+            </h2>
+            <p className="text-xs text-[var(--text-secondary)] mt-1 line-clamp-2">
+              Subject: {recentAttempts[0].subject} • Scored {recentAttempts[0].score}/{recentAttempts[0].maxScore} ({recentAttempts[0].percentage}%)
+            </p>
+          </div>
+
+          <div className="flex items-center justify-between pt-2 border-t border-[var(--border-subtle)]">
+            <div className="text-xs text-[var(--text-muted)]">
+              Score: <span className="font-bold text-[var(--brand-primary)]">{recentAttempts[0].percentage}%</span>
+            </div>
+            <Link
+              href={`/practice/quiz/${recentAttempts[0].quizId}`}
+              className="min-touch-target px-4 py-2 bg-[var(--brand-light)] text-[var(--brand-primary)] font-semibold text-xs rounded-xl hover:bg-[var(--brand-primary)] hover:text-white transition-colors flex items-center gap-1"
+            >
+              <span>Review / Retake</span>
+              <ChevronRight className="w-4 h-4" />
+            </Link>
+          </div>
+        </div>
+      ) : recentMaterials.length > 0 ? (
+        <div className="p-5 rounded-3xl bg-[var(--bg-surface)] border border-[var(--border-subtle)] shadow-sm space-y-3">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-semibold text-[var(--brand-primary)] uppercase tracking-wider">
+              Continue Studying
+            </span>
+            <span className="text-xs text-[var(--text-muted)] flex items-center gap-1">
+              <Clock className="w-3.5 h-3.5" /> Ready
+            </span>
+          </div>
+
+          <div>
+            <h2 className="font-display text-lg font-bold text-[var(--text-primary)]">
+              {recentMaterials[0].title}
+            </h2>
+            <p className="text-xs text-[var(--text-secondary)] mt-1">
+              Subject: {recentMaterials[0].subject} • {recentMaterials[0].page_count} Pages
+            </p>
+          </div>
+
+          <div className="flex items-center justify-between pt-2 border-t border-[var(--border-subtle)]">
+            <div className="text-xs text-[var(--text-muted)]">Study material loaded</div>
+            <Link
+              href={`/library/${recentMaterials[0].id}`}
+              className="min-touch-target px-4 py-2 bg-[var(--brand-light)] text-[var(--brand-primary)] font-semibold text-xs rounded-xl hover:bg-[var(--brand-primary)] hover:text-white transition-colors flex items-center gap-1"
+            >
+              <span>Continue</span>
+              <ChevronRight className="w-4 h-4" />
+            </Link>
+          </div>
+        </div>
+      ) : (
+        <div className="p-6 rounded-3xl bg-gradient-to-br from-indigo-50 to-purple-50 dark:from-indigo-950/40 dark:to-purple-950/40 border border-indigo-100 dark:border-indigo-900/60 shadow-sm space-y-3">
+          <div className="flex items-center gap-2 text-indigo-700 dark:text-indigo-300 font-bold text-xs uppercase tracking-wider">
+            <Sparkles className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+            <span>AI Study Hub Initialized</span>
+          </div>
+          <h2 className="font-display font-bold text-lg text-[var(--text-primary)]">
+            Ready to master your curriculum?
           </h2>
-          <p className="text-xs text-[var(--text-secondary)] mt-1 line-clamp-2">
-            Key concepts: Gametogenesis, Fertilization stages, and Hormonal regulation.
+          <p className="text-xs text-[var(--text-secondary)] leading-relaxed">
+            Generate custom AI assessments on any topic, learn from first principles, or upload your class notes to start practicing right away.
           </p>
+          <div className="flex flex-wrap gap-2 pt-2">
+            <Link
+              href="/practice"
+              className="px-4 py-2 bg-[var(--brand-primary)] text-white font-semibold text-xs rounded-xl flex items-center gap-1.5 shadow-xs"
+            >
+              <span>Start Assessment</span>
+              <ArrowRight className="w-4 h-4" />
+            </Link>
+            <Link
+              href="/library?action=upload"
+              className="px-4 py-2 bg-[var(--bg-surface)] border border-[var(--border-subtle)] text-[var(--text-primary)] font-semibold text-xs rounded-xl flex items-center gap-1.5"
+            >
+              <span>Upload Notes</span>
+            </Link>
+          </div>
         </div>
-
-        <div className="flex items-center justify-between pt-2 border-t border-[var(--border-subtle)]">
-          <div className="text-xs text-[var(--text-muted)]">Page 4 of 12 (33%)</div>
-          <Link
-            href="/library"
-            className="min-touch-target px-4 py-2 bg-[var(--brand-light)] text-[var(--brand-primary)] font-semibold text-xs rounded-xl hover:bg-[var(--brand-primary)] hover:text-white transition-colors flex items-center gap-1"
-          >
-            <span>Continue</span>
-            <ChevronRight className="w-4 h-4" />
-          </Link>
-        </div>
-      </div>
+      )}
 
       {/* Recent Activity */}
       <div className="space-y-3">
@@ -266,33 +341,41 @@ export default function DashboardPage() {
           <h2 className="font-display text-lg font-bold text-[var(--text-primary)]">
             Recent Activity
           </h2>
-          <Link href="/library" className="text-xs font-medium text-[var(--brand-primary)] hover:underline">
+          <Link href="/progress" className="text-xs font-medium text-[var(--brand-primary)] hover:underline">
             See all
           </Link>
         </div>
 
-        <div className="space-y-2">
-          <div className="p-3.5 rounded-2xl bg-[var(--bg-surface)] border border-[var(--border-subtle)] flex items-center justify-between text-xs">
-            <div>
-              <p className="font-semibold text-[var(--text-primary)]">Quiz: Cell Biology Essentials</p>
-              <p className="text-[var(--text-muted)]">Score: 90% (9/10 correct) • Yesterday</p>
-            </div>
-            <span className="px-2.5 py-1 rounded-full bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 font-bold">
-              90%
-            </span>
+        {recentAttempts.length > 0 ? (
+          <div className="space-y-2">
+            {recentAttempts.slice(0, 3).map((att) => (
+              <div
+                key={att.id}
+                className="p-3.5 rounded-2xl bg-[var(--bg-surface)] border border-[var(--border-subtle)] flex items-center justify-between text-xs"
+              >
+                <div>
+                  <p className="font-semibold text-[var(--text-primary)]">{att.title}</p>
+                  <p className="text-[var(--text-muted)]">
+                    Score: {att.score}/{att.maxScore} ({att.percentage}%) • {att.subject}
+                  </p>
+                </div>
+                <span className={`px-2.5 py-1 rounded-full font-bold ${
+                  att.percentage >= 70
+                    ? 'bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300'
+                    : 'bg-amber-100 dark:bg-amber-950 text-amber-700 dark:text-amber-300'
+                }`}>
+                  {att.percentage}%
+                </span>
+              </div>
+            ))}
           </div>
-
-          <div className="p-3.5 rounded-2xl bg-[var(--bg-surface)] border border-[var(--border-subtle)] flex items-center justify-between text-xs">
-            <div>
-              <p className="font-semibold text-[var(--text-primary)]">Lesson: Photosynthesis Masterclass</p>
-              <p className="text-[var(--text-muted)]">Read time: 14 mins • 2 days ago</p>
-            </div>
-            <span className="px-2.5 py-1 rounded-full bg-indigo-100 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300 font-bold">
-              Read
-            </span>
+        ) : (
+          <div className="p-4 rounded-2xl bg-[var(--bg-surface)] border border-[var(--border-subtle)] text-center text-xs text-[var(--text-muted)]">
+            No quiz attempts yet. Your live scores and study records will appear here as you take tests!
           </div>
-        </div>
+        )}
       </div>
     </div>
   );
 }
+

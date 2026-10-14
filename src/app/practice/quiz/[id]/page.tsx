@@ -216,7 +216,7 @@ export default function QuizRunnerPage({ params }: { params: Promise<{ id: strin
   }, [timeLeft, result, attempt]);
 
   const handleSubmitQuiz = async () => {
-    if (!attempt) return;
+    if (!attempt || !quiz) return;
     setIsSubmitting(true);
     setSubmitError(null);
 
@@ -242,6 +242,69 @@ export default function QuizRunnerPage({ params }: { params: Promise<{ id: strin
 
       const data = await res.json();
       setResult(data);
+
+      // Record to real local study history and mistakes
+      try {
+        const quizId = quiz.id;
+        const quizTitle = quiz.title;
+        const quizSubject = quiz.subject;
+        const quizTopic = quiz.topic;
+
+        const existingAttemptsStr = localStorage.getItem('venessa_attempts');
+        const existingAttempts = existingAttemptsStr ? JSON.parse(existingAttemptsStr) : [];
+        const newAttemptRecord = {
+          id: attempt.id,
+          quizId,
+          title: quizTitle,
+          subject: quizSubject,
+          topic: quizTopic,
+          score: data.attempt?.score ?? 0,
+          maxScore: data.attempt?.max_score ?? questions.length,
+          percentage: data.scorePercentage ?? 0,
+          date: new Date().toISOString(),
+        };
+        localStorage.setItem(
+          'venessa_attempts',
+          JSON.stringify([newAttemptRecord, ...existingAttempts.filter((a: { id: string }) => a.id !== attempt.id)])
+        );
+
+        // Record any mistakes
+        const missed = (data.answers || []).filter((ans: AttemptAnswer) => ans.verdict !== 'correct');
+        if (missed.length > 0) {
+          const existingMistakesStr = localStorage.getItem('venessa_mistakes');
+          const existingMistakes = existingMistakesStr ? JSON.parse(existingMistakesStr) : [];
+          const newMistakes = missed.map((ans: AttemptAnswer) => {
+            const q = questions.find((item) => item.id === ans.question_id);
+            return {
+              id: `m-${ans.question_id}`,
+              topic: q?.topic || quizTopic,
+              concept: q?.concept || q?.topic || 'Core Concept',
+              prompt: q?.prompt || 'Question missed during assessment',
+              userAnswer: ans.feedback?.given || String(ans.answer || 'Unanswered'),
+              correctAnswer: ans.feedback?.correct || 'See explanation',
+              explanation: ans.feedback?.explanation || '',
+              rememberTip: ans.feedback?.remember_tip || '',
+              timesMissed: 1,
+              status: 'active' as const,
+            };
+          });
+
+          // Merge mistakes avoiding duplicates
+          const merged = [...existingMistakes];
+          for (const nm of newMistakes) {
+            const idx = merged.findIndex((m: { id: string }) => m.id === nm.id);
+            if (idx >= 0) {
+              merged[idx].timesMissed = (merged[idx].timesMissed || 1) + 1;
+              merged[idx].status = 'active';
+            } else {
+              merged.unshift(nm);
+            }
+          }
+          localStorage.setItem('venessa_mistakes', JSON.stringify(merged));
+        }
+      } catch {
+        // storage fallback
+      }
     } catch (err) {
       setSubmitError((err as Error).message || 'Failed to submit quiz.');
     } finally {
