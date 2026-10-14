@@ -84,33 +84,9 @@ export function RobotAssistant() {
     isSpeakingRef.current = isSpeaking;
   }, [isSpeaking]);
 
-  // Play Futuristic Melodic Wake Chime (C5 -> G5 -> C6) using Web Audio API
+  // Audio feedback is provided by spoken voice ("Hello there!"), synthesizer beeping disabled
   const playWakeChime = useCallback(() => {
-    try {
-      const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
-      if (!AudioCtx) return;
-      const ctx = new AudioCtx();
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-
-      osc.connect(gain);
-      gain.connect(ctx.destination);
-      osc.type = 'sine';
-
-      // 3-tone arpeggio
-      const t = ctx.currentTime;
-      osc.frequency.setValueAtTime(523.25, t); // C5
-      osc.frequency.exponentialRampToValueAtTime(783.99, t + 0.1); // G5
-      osc.frequency.exponentialRampToValueAtTime(1046.5, t + 0.2); // C6
-
-      gain.gain.setValueAtTime(0.25, t);
-      gain.gain.exponentialRampToValueAtTime(0.01, t + 0.35);
-
-      osc.start(t);
-      osc.stop(t + 0.35);
-    } catch {
-      // Audio context may require initial user click
-    }
+    // Disabled: user requested voice feedback instead of beeping
   }, []);
 
   // Initialize position on screen (bottom right default)
@@ -270,12 +246,10 @@ export function RobotAssistant() {
 
         if (WAKE_WORD_REGEX.test(cleanTranscript)) {
           setWakeDetected(true);
-          playWakeChime();
           setIsOpen(true);
 
           const isNessa = /nessa|vanessa/i.test(cleanTranscript);
           const detectedWord = isNessa ? 'Nessa' : 'CyberVen';
-          setStatusMessage(`🎙️ Wake word detected: "${detectedWord}"!`);
 
           // Extract any query spoken in the same breath after the wake word
           const match = cleanTranscript.match(/(?:hey|hi|hello|ok|okay)?\s*(?:cyber\s*ven|vanessa|nessa)\s*[,:]?\s*(.*)/i);
@@ -283,14 +257,14 @@ export function RobotAssistant() {
 
           if (trailingQuery.length > 2) {
             setTranscriptPreview('');
+            // Spoken voice audio feedback: "Hello there!"
+            speakText("Hello there!");
+            setStatusMessage(`🎙️ "Hello there!" (${detectedWord})`);
             handleSendMessage(trailingQuery);
           } else {
-            // User just said the wake word, greet and listen for follow up
-            const greeting = isNessa
-              ? "Hey! Nessa here, I'm listening. What can I do for you?"
-              : "Hey! CyberVen here, I'm listening. What can I do for you?";
-            speakText(greeting);
-            setStatusMessage(`I'm listening as ${detectedWord}! Speak your request... 🎙️`);
+            // Wake up call sentence mentioned: respond with spoken voice "Hello there!" (no beeping feedback)
+            speakText("Hello there!");
+            setStatusMessage(`Hello there! 🎙️ (${detectedWord} listening)`);
           }
 
           setTimeout(() => {
@@ -364,7 +338,6 @@ export function RobotAssistant() {
 
     if (nextState) {
       setStatusMessage("🎙️ Always Listening for 'Hey CyberVen' or 'Hey Nessa' is ON!");
-      playWakeChime();
     } else {
       setStatusMessage("Wake word listening paused.");
       stopSpeaking();
@@ -554,7 +527,6 @@ export function RobotAssistant() {
 
     if (!hasDraggedRef.current) {
       setIsOpen((prev) => !prev);
-      playWakeChime();
     }
   };
 
@@ -951,8 +923,8 @@ export function RobotAssistant() {
                     type="button"
                     onClick={() => {
                       if (wakeWordActive) {
-                        setStatusMessage("Speak now! Listening... 🎙️");
-                        playWakeChime();
+                        speakText("Hello there!");
+                        setStatusMessage("Hello there! Speak now... 🎙️");
                       } else {
                         toggleWakeWordMode();
                       }

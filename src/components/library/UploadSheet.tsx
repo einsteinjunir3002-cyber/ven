@@ -9,6 +9,8 @@ interface UploadSheetProps {
   onSuccess: (materialId: string) => void;
 }
 
+const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB
+
 export function UploadSheet({ isOpen, onClose, onSuccess }: UploadSheetProps) {
   const [activeTab, setActiveTab] = useState<'file' | 'camera' | 'text'>('file');
   const [title, setTitle] = useState('');
@@ -22,9 +24,16 @@ export function UploadSheet({ isOpen, onClose, onSuccess }: UploadSheetProps) {
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
-      setSelectedFile(e.target.files[0]);
+      const file = e.target.files[0];
+      if (file.size > MAX_FILE_SIZE) {
+        setErrorMsg(`File size (${(file.size / (1024 * 1024)).toFixed(1)}MB) exceeds the 50MB maximum limit. Please choose a file under 50MB.`);
+        setSelectedFile(null);
+        return;
+      }
+      setSelectedFile(file);
+      setErrorMsg(null);
       if (!title) {
-        setTitle(e.target.files[0].name.replace(/\.[^/.]+$/, ''));
+        setTitle(file.name.replace(/\.[^/.]+$/, ''));
       }
     }
   };
@@ -43,30 +52,73 @@ export function UploadSheet({ isOpen, onClose, onSuccess }: UploadSheetProps) {
     }
 
     setIsProcessing(true);
-    setStageMessage('Reading your notes...');
-
-    const formData = new FormData();
-    if (title) formData.append('title', title);
-
-    if (activeTab === 'file' && selectedFile) {
-      formData.append('file', selectedFile);
-    } else if (activeTab === 'text') {
-      formData.append('text', pastedText);
-    }
 
     try {
-      setTimeout(() => setStageMessage('Finding important concepts...'), 1500);
-      setTimeout(() => setStageMessage('Almost ready...'), 3500);
+      let uploadPayload: any;
+
+      if ((activeTab === 'file' || activeTab === 'camera') && selectedFile) {
+        // Direct upload to Supabase Storage (bypasses Vercel 4.5MB serverless limit)
+        setStageMessage(`Uploading ${selectedFile.name} to cloud storage...`);
+
+        const urlRes = await fetch('/api/materials/upload-url', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ filename: selectedFile.name }),
+        });
+
+        if (!urlRes.ok) {
+          const errData = await urlRes.json().catch(() => null);
+          throw new Error(errData?.error || 'Failed to prepare upload destination.');
+        }
+
+        const { signedUrl, path } = await urlRes.json();
+
+        // Direct PUT from browser to Supabase Storage
+        setStageMessage('Transferring document directly to cloud storage...');
+        const putRes = await fetch(signedUrl, {
+          method: 'PUT',
+          body: selectedFile,
+          headers: { 'Content-Type': selectedFile.type || 'application/octet-stream' },
+        });
+
+        if (!putRes.ok) {
+          throw new Error(`Direct cloud storage upload failed with status ${putRes.status}`);
+        }
+
+        uploadPayload = {
+          storagePath: path,
+          title: title || selectedFile.name.replace(/\.[^/.]+$/, ''),
+          fileType: selectedFile.type,
+          fileName: selectedFile.name,
+        };
+      } else {
+        uploadPayload = {
+          text: pastedText,
+          title: title || 'Pasted Notes',
+        };
+      }
+
+      setStageMessage('Reading pages and extracting text...');
+      setTimeout(() => setStageMessage('Chunking concepts & generating AI study notes...'), 3000);
+      setTimeout(() => setStageMessage('Almost ready...'), 7000);
 
       const res = await fetch('/api/materials/upload', {
         method: 'POST',
-        body: formData,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(uploadPayload),
       });
 
-      const data = await res.json();
+      let data: any = null;
+      const contentType = res.headers.get('content-type') || '';
+      if (contentType.includes('application/json')) {
+        data = await res.json().catch(() => null);
+      } else {
+        const rawText = await res.text().catch(() => '');
+        throw new Error(rawText || `Processing error (HTTP ${res.status})`);
+      }
 
       if (!res.ok) {
-        throw new Error(data.error || 'Failed to process document');
+        throw new Error(data?.error || `Failed to process document (${res.status})`);
       }
 
       setStageMessage('Your notes are ready! 🎉');
@@ -162,7 +214,7 @@ export function UploadSheet({ isOpen, onClose, onSuccess }: UploadSheetProps) {
                 type="text"
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
-                placeholder="e.g., Biology Chapter 4: Human Reproduction"
+                placeholder="e.g., Driving Book Manual or Biology Notes"
                 className="w-full px-3.5 py-2.5 bg-[var(--bg-surface)] border border-[var(--border-subtle)] rounded-xl text-sm outline-none focus:border-[var(--brand-primary)]"
               />
             </div>
@@ -171,7 +223,7 @@ export function UploadSheet({ isOpen, onClose, onSuccess }: UploadSheetProps) {
             {activeTab === 'file' && (
               <div>
                 <label className="block text-xs font-semibold text-[var(--text-secondary)] mb-1">
-                  Select File (PDF, DOCX, PPTX, Images up to 25MB)
+                  Select File (PDF, DOCX, PPTX, Images up to 50MB)
                 </label>
                 <div className="border-2 border-dashed border-[var(--border-strong)] hover:border-[var(--brand-primary)] rounded-2xl p-6 text-center cursor-pointer transition-colors relative">
                   <input

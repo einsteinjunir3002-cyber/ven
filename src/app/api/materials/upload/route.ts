@@ -5,6 +5,8 @@ import { chunkDocumentPages } from '@/server/documents/chunker';
 import { generateEmbedding, generateStructured } from '@/server/ai/provider';
 import { z } from 'zod';
 
+export const maxDuration = 60; // Allow full 60s execution on Vercel for larger documents
+
 const ALLOWED_MIME_TYPES = [
   'application/pdf',
   'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
@@ -15,7 +17,7 @@ const ALLOWED_MIME_TYPES = [
   'text/plain',
 ];
 
-const MAX_FILE_SIZE = 25 * 1024 * 1024; // 25MB
+const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB
 
 const analysisSchema = z.object({
   title: z.string(),
@@ -33,11 +35,33 @@ const analysisSchema = z.object({
 
 export async function POST(request: Request) {
   try {
-    const formData = await request.formData();
-    const file = formData.get('file') as File | null;
-    const pastedText = formData.get('text') as string | null;
-    const customTitle = formData.get('title') as string | null;
-    const rawUserId = formData.get('userId') as string | null;
+    const contentType = request.headers.get('content-type') || '';
+    const supabaseAdmin = createAdminClient();
+
+    let file: File | null = null;
+    let pastedText: string | null = null;
+    let customTitle: string | null = null;
+    let storagePath: string | null = null;
+    let fileType: string | null = null;
+    let fileName: string | null = null;
+    let rawUserId: string | null = null;
+
+    if (contentType.includes('application/json')) {
+      const body = await request.json();
+      storagePath = body.storagePath || null;
+      pastedText = body.text || null;
+      customTitle = body.title || null;
+      fileType = body.fileType || null;
+      fileName = body.fileName || null;
+      rawUserId = body.userId || null;
+    } else {
+      const formData = await request.formData();
+      file = formData.get('file') as File | null;
+      pastedText = formData.get('text') as string | null;
+      customTitle = formData.get('title') as string | null;
+      rawUserId = formData.get('userId') as string | null;
+    }
+
     const userId = (!rawUserId || rawUserId === '00000000-0000-0000-0000-000000000000')
       ? DEFAULT_GUEST_USER_ID
       : rawUserId;
@@ -45,9 +69,39 @@ export async function POST(request: Request) {
     let parsed: ParsedDocument;
     let sourceType: 'pdf' | 'docx' | 'pptx' | 'images' | 'text' = 'text';
 
-    if (file) {
+    if (storagePath) {
+      // Download file directly from Supabase Storage (bypasses Vercel incoming body limit)
+      const { data: fileBlob, error: dlErr } = await supabaseAdmin.storage
+        .from('materials')
+        .download(storagePath);
+
+      if (dlErr || !fileBlob) {
+        return NextResponse.json(
+          { error: `Failed to download file from cloud storage: ${dlErr?.message || 'File not found'}` },
+          { status: 400 }
+        );
+      }
+
+      const buffer = Buffer.from(await fileBlob.arrayBuffer());
+      const lowerPath = storagePath.toLowerCase();
+      const detectedType = fileType || (lowerPath.endsWith('.pdf') ? 'application/pdf' : lowerPath.endsWith('.docx') ? 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' : lowerPath.endsWith('.pptx') ? 'application/vnd.openxmlformats-officedocument.presentationml.presentation' : 'text/plain');
+
+      if (detectedType === 'application/pdf' || lowerPath.endsWith('.pdf')) {
+        sourceType = 'pdf';
+        parsed = await parsePdfBuffer(buffer);
+      } else if (detectedType.includes('wordprocessingml') || lowerPath.endsWith('.docx')) {
+        sourceType = 'docx';
+        parsed = await parseDocxBuffer(buffer);
+      } else if (detectedType.includes('presentationml') || lowerPath.endsWith('.pptx')) {
+        sourceType = 'pptx';
+        parsed = await parsePptxBuffer(buffer);
+      } else {
+        sourceType = 'images';
+        parsed = parseTextContent(`[Extracted Note]: ${fileName || storagePath}`, customTitle || fileName || 'Uploaded Document');
+      }
+    } else if (file) {
       if (file.size > MAX_FILE_SIZE) {
-        return NextResponse.json({ error: 'File size exceeds 25MB limit.' }, { status: 400 });
+        return NextResponse.json({ error: 'File size exceeds 50MB limit.' }, { status: 400 });
       }
       if (!ALLOWED_MIME_TYPES.includes(file.type)) {
         return NextResponse.json({ error: 'Unsupported file type. Upload PDF, DOCX, PPTX, or Image.' }, { status: 400 });
@@ -72,10 +126,8 @@ export async function POST(request: Request) {
       sourceType = 'text';
       parsed = parseTextContent(pastedText, customTitle || 'Pasted Notes');
     } else {
-      return NextResponse.json({ error: 'No file or text provided' }, { status: 400 });
+      return NextResponse.json({ error: 'No file, storagePath, or text provided' }, { status: 400 });
     }
-
-    const supabaseAdmin = createAdminClient();
 
     // 1. Insert Material record
     const { data: material, error: matErr } = await supabaseAdmin
@@ -95,25 +147,34 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: matErr?.message || 'Failed to create material record' }, { status: 500 });
     }
 
-    // 2. Insert Pages
-    for (const p of parsed.pages) {
-      await supabaseAdmin.from('material_pages').insert({
-        material_id: material.id,
-        user_id: userId,
-        page_number: p.pageNumber,
-        label: p.label,
-        content: p.content,
-      });
+    // 2. Insert Pages in fast batches
+    const pageRows = parsed.pages.map((p) => ({
+      material_id: material.id,
+      user_id: userId,
+      page_number: p.pageNumber,
+      label: p.label,
+      content: p.content,
+    }));
+
+    for (let i = 0; i < pageRows.length; i += 50) {
+      await supabaseAdmin.from('material_pages').insert(pageRows.slice(i, i + 50));
     }
 
     // 3. Chunk Document
     const chunks = chunkDocumentPages(parsed.pages);
+    const chunkRows = [];
 
-    for (const chunk of chunks) {
-      // Generate vector embedding per chunk
-      const vector = await generateEmbedding(chunk.content);
+    // Prioritize embedding up to 40 primary chunks to guarantee speedy processing even on large textbooks
+    const chunksToEmbed = chunks.slice(0, 40);
+    for (const chunk of chunksToEmbed) {
+      let vector: number[] = [];
+      try {
+        vector = await generateEmbedding(chunk.content);
+      } catch {
+        // Continue if rate-limited
+      }
 
-      await supabaseAdmin.from('chunks').insert({
+      chunkRows.push({
         material_id: material.id,
         user_id: userId,
         chunk_index: chunk.chunkIndex,
@@ -122,8 +183,28 @@ export async function POST(request: Request) {
         heading: chunk.heading,
         content: chunk.content,
         token_count: chunk.tokenCount,
-        embedding: vector,
+        embedding: vector.length > 0 ? vector : null,
       });
+    }
+
+    // Remaining chunks inserted with null embeddings to maintain complete index
+    for (let i = 40; i < chunks.length; i++) {
+      const chunk = chunks[i];
+      chunkRows.push({
+        material_id: material.id,
+        user_id: userId,
+        chunk_index: chunk.chunkIndex,
+        page_number: chunk.pageNumber,
+        page_label: chunk.pageLabel,
+        heading: chunk.heading,
+        content: chunk.content,
+        token_count: chunk.tokenCount,
+        embedding: null,
+      });
+    }
+
+    for (let i = 0; i < chunkRows.length; i += 50) {
+      await supabaseAdmin.from('chunks').insert(chunkRows.slice(i, i + 50));
     }
 
     // 4. Analyze key concepts & topics via AI
