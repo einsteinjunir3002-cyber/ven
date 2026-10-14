@@ -1,0 +1,99 @@
+@layer base {
+  :root {
+    /* Color Palette - Light Theme (Soft academic, modern, clean) */
+    --bg-primary: #F8FAF9;
+    --bg-surface: #FFFFFF;
+    --bg-elevated: #F0F4F2;
+    --bg-overlay: rgba(255, 255, 255, 0.85);
+
+    --border-subtle: #E2E8E5;
+    --border-strong: #C4D1CB;
+
+    --text-primary: #121A16;
+    --text-secondary: #42524A;
+    --text-muted: #6D7E76;
+
+    --brand-primary: #0F5C47; /* Deep emerald sage */
+    --brand-primary-hover: #0B4737;
+    --brand-accent: #6343D8; /* Soft violet indigo */
+    --brand-accent-hover: #4F31BE;
+    --brand-light: #E8F5F1;
+
+    /* Semantic Quiz States */
+    --state-neutral-selected-bg: #EEF2FF;
+    --state-neutral-selected-border: #6366F1;
+    --state-neutral-selected-text: #312E81;
+
+    --state-correct-bg: #ECFDF5;
+    --state-correct-border: #10B981;
+    --state-correct-text: #065F46;
+
+    --state-incorrect-bg: #FEF2F2;
+    --state-incorrect-border: #EF4444;
+    --state-incorrect-text: #991B1B;
+
+    --state-warning-bg: #FFFBEB;
+    --state-warning-border: #F59E0B;
+    --state-warning-text: #92400E;
+
+    /* Motion & Elevation */
+    --radius-sm: 8px;
+    --radius-md: 12px;
+    --radius-lg: 18px;
+    --radius-xl: 24px;
+
+    --shadow-sm: 0 2px 6px rgba(18, 26, 22, 0.04);
+    --shadow-md: 0 4px 16px rgba(18, 26, 22, 0.08);
+    --shadow-lg: 0 8px 30px rgba(18, 26, 22, 0.12);
+
+    --duration-fast: 150ms;
+    --duration-normal: 250ms;
+    --duration-slow: 350ms;
+    --ease-out-spring: cubic-bezier(0.16, 1, 0.3, 1);
+
+    --font-display: var(--font-fraunces), serif;
+    --font-body: var(--font-inter), -apple-system, BlinkMacSystemFont, sans-serif;
+  }
+
+  .dark {
+    /* Color Palette - Dark Theme (Designed, non-glare slate emerald) */
+    --bg-primary: #0D1311;
+    --bg-surface: #151D1A;
+    --bg-elevated: #1F2A26;
+    --bg-overlay: rgba(21, 29, 26, 0.88);
+
+    --border-subtle: #283631;
+    --border-strong: #3A4E47;
+
+    --text-primary: #F0F4F2;
+    --text-secondary: #B1C2BB;
+    --text-muted: #80948C;
+
+    --brand-primary: #2DD4BF; /* Vibrant teal emerald */
+    --brand-primary-hover: #14B8A6;
+    --brand-accent: #A5B4FC;
+    --brand-accent-hover: #818CF8;
+    --brand-light: #122923;
+
+    /* Semantic Quiz States */
+    --state-neutral-selected-bg: #1E1B4B;
+    --state-neutral-selected-border: #818CF8;
+    --state-neutral-selected-text: #E0E7FF;
+
+    --state-correct-bg: #064E3B;
+    --state-correct-border: #34D399;
+    --state-correct-text: #ECFDF5;
+
+    --state-incorrect-bg: #7F1D1D;
+    --state-incorrect-border: #F87171;
+    --state-incorrect-text: #FEF2F2;
+
+    --state-warning-bg: #78350F;
+    --state-warning-border: #FBBF24;
+    --state-warning-text: #FEF3C7;
+
+    --shadow-sm: 0 2px 6px rgba(0, 0, 0, 0.3);
+    --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.4);
+    --shadow-lg: 0 8px 30px rgba(0, 0, 0, 0.5);
+  }
+}
