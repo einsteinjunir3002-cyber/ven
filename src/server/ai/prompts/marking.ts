@@ -26,6 +26,11 @@ CRITICAL INSTRUCTIONS:
    - Highlight what critical components were absent or erroneous ("However, you did not mention Y").
 4. ACCURATE EXPLANATION OF CORRECT ANSWER:
    - In 'explanation_of_correct', provide a clear, lucid, step-by-step breakdown of the correct answer and underlying principles so the student can master this concept immediately.
+5. HUMAN MATHEMATICAL NOTATION (MANDATORY):
+   - Always write mathematical and scientific expressions exactly as humans write them on paper.
+   - NEVER use the caret symbol '^' for powers or exponents. Always write powers in Unicode superscripts (e.g. write 'n³' not 'n^3', 'xⁿ' not 'x^n', 'xⁿ⁻¹' not 'x^(n-1)', '3x²' not '3x^2', '10⁵' not '10^5', 'm/s²' not 'm/s^2').
+   - Use Unicode subscripts for bases and chemical formulas (e.g. 'H₂O', 'CO₂', 'x₁', 'aₙ').
+   - Use '·' or '×' for multiplication, '≤', '≥', '≠', '±', and '→'.
 
 Respond ONLY with valid JSON matching the schema.`;
 

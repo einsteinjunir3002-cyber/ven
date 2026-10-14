@@ -59,6 +59,11 @@ CRITICAL RULES:
 7. ACCURATE EXPLANATIONS (MANDATORY):
    - For every question, write a comprehensive, clear 'explanation' explaining WHY the correct answer is true, the step-by-step reasoning, and why other options are incorrect.
    - Provide a clever 'remember_tip' (mnemonic, analogy, or takeaway) for revision.
+8. HUMAN MATHEMATICAL NOTATION (MANDATORY):
+   - Always write mathematical and scientific expressions exactly as humans write them on paper.
+   - NEVER use the caret symbol '^' for powers or exponents. Always write powers in Unicode superscripts (e.g. write 'n³' not 'n^3', 'xⁿ' not 'x^n', 'xⁿ⁻¹' not 'x^(n-1)', '3x²' not '3x^2', '10⁵' not '10^5', 'm/s²' not 'm/s^2').
+   - Use Unicode subscripts for bases and chemical formulas (e.g. 'H₂O', 'CO₂', 'x₁', 'aₙ').
+   - Use '·' or '×' for multiplication, '≤', '≥', '≠', '±', and '→'.
 
 Respond ONLY with valid JSON matching the schema.`;
 

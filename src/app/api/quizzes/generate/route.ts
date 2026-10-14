@@ -4,6 +4,7 @@ import { createAdminClient, DEFAULT_GUEST_USER_ID } from '@/lib/supabase/admin';
 import { generateStructured } from '@/server/ai/provider';
 import { QUIZ_GEN_SYSTEM_PROMPT, quizGenResponseSchema, QuizGenResponse } from '@/server/ai/prompts/quiz_gen';
 import { generateDynamicQuestions } from '@/server/ai/generators/dynamic_questions';
+import { formatMathNotation, formatMathObject } from '@/lib/math-format';
 import {
   quizStore,
   StoredQuestion,
@@ -65,8 +66,11 @@ Ensure each question has a clear, comprehensive pedagogical explanation explaini
       });
     }
 
+    // Apply human paper mathematical formatting across all generated content
+    generated = formatMathObject(generated);
+
     const quizId = randomUUID();
-    const quizTitle = generated.title || `${subject}: ${topic}`;
+    const quizTitle = formatMathNotation(generated.title || `${subject}: ${topic}`);
     const quizSubject = generated.subject || subject;
     const quizTopic = generated.topic || topic;
 
@@ -86,8 +90,8 @@ Ensure each question has a clear, comprehensive pedagogical explanation explaini
         quiz_id: quizId,
         position,
         type: q.type,
-        prompt: q.prompt,
-        options: q.options || null,
+        prompt: formatMathNotation(q.prompt),
+        options: q.options ? q.options.map((opt) => formatMathNotation(opt)) : null,
         subject: q.subject || quizSubject,
         topic: q.topic || quizTopic,
         concept: q.concept || topic,
@@ -100,11 +104,11 @@ Ensure each question has a clear, comprehensive pedagogical explanation explaini
         quiz_id: quizId,
         correct_option: q.correct_option ?? null,
         correct_bool: q.correct_bool ?? null,
-        accepted_answers: q.accepted_answers || [],
-        rubric: q.rubric || null,
-        model_answer: q.rubric?.sample_answer || null,
-        explanation: q.explanation || 'Detailed step-by-step breakdown of why this answer is correct.',
-        remember_tip: q.remember_tip || 'Key takeaway for revision.',
+        accepted_answers: (q.accepted_answers || []).map((ans) => formatMathNotation(ans)),
+        rubric: q.rubric ? formatMathObject(q.rubric) : null,
+        model_answer: q.rubric?.sample_answer ? formatMathNotation(q.rubric.sample_answer) : null,
+        explanation: formatMathNotation(q.explanation || 'Detailed step-by-step breakdown of why this answer is correct.'),
+        remember_tip: formatMathNotation(q.remember_tip || 'Key takeaway for revision.'),
       };
 
       storedQuestions.push(questionObj);

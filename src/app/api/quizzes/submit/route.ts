@@ -4,6 +4,7 @@ import { createAdminClient, DEFAULT_GUEST_USER_ID } from '@/lib/supabase/admin';
 import { generateStructured } from '@/server/ai/provider';
 import { MARKING_SYSTEM_PROMPT, markingResultSchema, MarkingResult } from '@/server/ai/prompts/marking';
 import { quizStore, StoredAttemptAnswer } from '@/server/quiz-store';
+import { formatMathNotation } from '@/lib/math-format';
 
 interface SubmittedAnswerInput {
   questionId: string;
@@ -277,13 +278,13 @@ Total Max Marks: ${maxMarks}`;
         max_marks: maxMarks,
         verdict,
         feedback: {
-          text: feedbackText,
-          given: displayGiven,
-          correct: displayCorrect,
-          explanation: explanation,
-          remember_tip: rememberTip,
-          key_points_hit: keyPointsHit.length > 0 ? keyPointsHit : undefined,
-          key_points_missed: keyPointsMissed.length > 0 ? keyPointsMissed : undefined,
+          text: formatMathNotation(feedbackText),
+          given: formatMathNotation(displayGiven),
+          correct: formatMathNotation(displayCorrect),
+          explanation: formatMathNotation(explanation),
+          remember_tip: formatMathNotation(rememberTip),
+          key_points_hit: keyPointsHit.length > 0 ? keyPointsHit.map((p) => formatMathNotation(p)) : undefined,
+          key_points_missed: keyPointsMissed.length > 0 ? keyPointsMissed.map((p) => formatMathNotation(p)) : undefined,
         },
       };
 

@@ -1,4 +1,5 @@
 import { QuizGenResponse } from '../prompts/quiz_gen';
+import { formatMathObject } from '@/lib/math-format';
 
 interface GeneratorOptions {
   subject: string;
@@ -46,10 +47,10 @@ const SUBJECT_TEMPLATES: Record<string, TopicTemplate[]> = {
     {
       concept: 'Calculus & Derivatives',
       mcq: {
-        prompt: 'What is the derivative of f(x) = 3x^2 + 5x - 7 with respect to x?',
-        options: ['6x + 5', '3x + 5', '6x^2 + 5', '6x - 7'],
+        prompt: 'What is the derivative of f(x) = 3x² + 5x - 7 with respect to x?',
+        options: ['6x + 5', '3x + 5', '6x² + 5', '6x - 7'],
         correct: 0,
-        explanation: 'Using the power rule d/dx[x^n] = n*x^(n-1): d/dx[3x^2] = 6x, d/dx[5x] = 5, and the derivative of a constant (-7) is 0. Thus, f\'(x) = 6x + 5.',
+        explanation: 'Using the power rule d/dx[xⁿ] = n·xⁿ⁻¹: d/dx[3x²] = 6x, d/dx[5x] = 5, and the derivative of a constant (-7) is 0. Thus, f′(x) = 6x + 5.',
         tip: 'Power Rule: Bring the exponent down in front, then subtract 1 from the power.',
       },
       tf: {
@@ -385,10 +386,10 @@ export function generateDynamicQuestions(options: GeneratorOptions): QuizGenResp
     }
   }
 
-  return {
+  return formatMathObject({
     title: `${options.subject}: ${options.topic}`,
     subject: options.subject,
     topic: options.topic,
     questions,
-  };
+  });
 }

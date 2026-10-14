@@ -1,3 +1,5 @@
+import { formatMathNotation } from '@/lib/math-format';
+
 interface TutorContext {
   type?: string;
   label?: string;
@@ -42,5 +44,6 @@ export function generateDynamicTutorResponse({ message, context }: DynamicTutorP
 
   const socraticCheck = `\n\n---\n**Quick Check For Understanding:**\nBased on this explanation, if we were to double the primary driving factor while keeping all other variables constant, what do you predict would happen to the final output? *(Try answering in your own words!)*`;
 
-  return `${explanation}${contextSection}${analogy}${socraticCheck}`;
+  return formatMathNotation(`${explanation}${contextSection}${analogy}${socraticCheck}`);
 }
+

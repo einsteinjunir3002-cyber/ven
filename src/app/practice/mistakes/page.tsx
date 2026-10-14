@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { ArrowLeft, CheckCircle2, RotateCcw, Sparkles, HelpCircle, XCircle } from 'lucide-react';
+import { formatMathNotation } from '@/lib/math-format';
 
 interface MistakeItem {
   id: string;
@@ -96,23 +97,23 @@ export default function MistakesPage() {
                 </span>
               </div>
 
-              <h3 className="font-semibold text-sm text-[var(--text-primary)]">{item.prompt}</h3>
+              <h3 className="font-semibold text-sm text-[var(--text-primary)]">{formatMathNotation(item.prompt)}</h3>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
                 <div className="p-3 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 text-rose-800 dark:text-rose-200">
                   <span className="font-bold block mb-0.5">Your Answer:</span>
-                  <span>{item.userAnswer}</span>
+                  <span>{formatMathNotation(item.userAnswer)}</span>
                 </div>
                 <div className="p-3 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-200">
                   <span className="font-bold block mb-0.5">Correct Answer:</span>
-                  <span>{item.correctAnswer}</span>
+                  <span>{formatMathNotation(item.correctAnswer)}</span>
                 </div>
               </div>
 
               <div className="p-3 rounded-2xl bg-[var(--bg-elevated)] text-xs text-[var(--text-secondary)] space-y-1">
                 <p className="font-bold text-[var(--text-primary)]">Why?</p>
-                <p>{item.explanation}</p>
-                <p className="font-semibold text-[var(--brand-primary)] pt-1">💡 Tip: {item.rememberTip}</p>
+                <p>{formatMathNotation(item.explanation)}</p>
+                <p className="font-semibold text-[var(--brand-primary)] pt-1">💡 Tip: {formatMathNotation(item.rememberTip)}</p>
               </div>
 
               <div className="flex items-center justify-between pt-2">

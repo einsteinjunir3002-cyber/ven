@@ -14,6 +14,7 @@ import {
   Loader2,
 } from 'lucide-react';
 import { TeachTopicResult } from '@/server/ai/prompts/teach_topic';
+import { formatMathObject } from '@/lib/math-format';
 
 const SUGGESTED_SUBJECTS = [
   {
@@ -78,7 +79,7 @@ export default function LearnPage() {
       });
 
       const data = await res.json();
-      setLessonData(data.lesson);
+      setLessonData(data.lesson ? formatMathObject(data.lesson) : null);
     } catch {
       // Handled via fallback in API route
     } finally {

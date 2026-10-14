@@ -24,6 +24,7 @@ import {
   Share2,
 } from 'lucide-react';
 import { openDB } from 'idb';
+import { formatMathNotation } from '@/lib/math-format';
 
 interface Question {
   id: string;
@@ -546,7 +547,7 @@ export default function QuizRunnerPage({ params }: { params: Promise<{ id: strin
 
                   {/* Prompt */}
                   <h3 className="font-display font-bold text-base text-[var(--text-primary)] leading-snug">
-                    {q?.prompt || 'Question Prompt'}
+                    {formatMathNotation(q?.prompt || 'Question Prompt')}
                   </h3>
 
                   {/* Student vs Correct Answer Comparison */}
@@ -554,14 +555,14 @@ export default function QuizRunnerPage({ params }: { params: Promise<{ id: strin
                     <div className="p-3 rounded-2xl bg-[var(--bg-surface)] border border-[var(--border-subtle)] space-y-1">
                       <span className="font-bold text-[var(--text-muted)] block text-[11px]">Your Submitted Answer:</span>
                       <span className={isCorrect ? 'text-emerald-700 dark:text-emerald-300 font-semibold' : 'text-rose-700 dark:text-rose-300 font-semibold'}>
-                        {fb.given || 'No answer submitted'}
+                        {formatMathNotation(fb.given || 'No answer submitted')}
                       </span>
                     </div>
 
                     <div className="p-3 rounded-2xl bg-[var(--bg-surface)] border border-[var(--border-subtle)] space-y-1">
                       <span className="font-bold text-[var(--text-muted)] block text-[11px]">Correct / Model Answer:</span>
                       <span className="text-emerald-700 dark:text-emerald-300 font-semibold">
-                        {fb.correct || 'Model concept answer'}
+                        {formatMathNotation(fb.correct || 'Model concept answer')}
                       </span>
                     </div>
                   </div>
@@ -600,13 +601,13 @@ export default function QuizRunnerPage({ params }: { params: Promise<{ id: strin
                       <span>Why this is correct (Step-by-Step Explanation):</span>
                     </div>
                     <p className="text-[var(--text-primary)] font-medium whitespace-pre-line">
-                      {fb.explanation || fb.text}
+                      {formatMathNotation(fb.explanation || fb.text)}
                     </p>
 
                     {fb.remember_tip && (
                       <div className="pt-2 border-t border-[var(--border-subtle)] flex items-start gap-1.5 text-[var(--brand-primary)] font-semibold text-[11px]">
                         <span>💡</span>
-                        <span>Remember Tip: {fb.remember_tip}</span>
+                        <span>Remember Tip: {formatMathNotation(fb.remember_tip)}</span>
                       </div>
                     )}
                   </div>
@@ -682,7 +683,7 @@ export default function QuizRunnerPage({ params }: { params: Promise<{ id: strin
                       {idx + 1}
                     </span>
                     <span className="font-medium truncate max-w-[260px] text-[var(--text-primary)]">
-                      {q.prompt}
+                      {formatMathNotation(q.prompt)}
                     </span>
                   </div>
 
@@ -795,7 +796,7 @@ export default function QuizRunnerPage({ params }: { params: Promise<{ id: strin
         </div>
 
         <h2 className="font-display font-bold text-xl sm:text-2xl text-[var(--text-primary)] leading-snug">
-          {currentQ.prompt}
+          {formatMathNotation(currentQ.prompt)}
         </h2>
 
         {/* MCQ Answer Options */}
@@ -825,7 +826,7 @@ export default function QuizRunnerPage({ params }: { params: Promise<{ id: strin
                   >
                     {letter}
                   </span>
-                  <span className="text-sm font-medium">{option}</span>
+                  <span className="text-sm font-medium">{formatMathNotation(option)}</span>
                 </button>
               );
             })}

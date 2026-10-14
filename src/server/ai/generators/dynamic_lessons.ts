@@ -1,4 +1,5 @@
 import { TeachTopicResult } from '@/server/ai/prompts/teach_topic';
+import { formatMathObject } from '@/lib/math-format';
 
 interface DynamicLessonParams {
   topic: string;
@@ -23,7 +24,7 @@ export function generateDynamicLesson({
   const titleTopic = cleanTitle(topic) || 'Core Principles';
   const displaySubject = subject || 'Academic Studies';
 
-  return {
+  return formatMathObject({
     title: `${titleTopic}: First-Principles Masterclass`,
     introduction: `${titleTopic} is an essential cornerstone in ${displaySubject}. Understanding this topic from first principles allows you to solve advanced problems without relying on superficial memorization. In this comprehensive guide calibrated for ${level} level, we will break down the underlying mechanics step-by-step.`,
     what_you_will_learn: [
@@ -122,5 +123,5 @@ export function generateDynamicLesson({
       },
     ],
     final_revision_sheet: `Summary Sheet for ${titleTopic}:\n- Domain: ${displaySubject} (${level})\n- Core Objective: First-principles mastery and systematic deduction.\n- Key Equation/Principle: Dependent Response = Function(Independent Drivers, System Constraints).\n- Strategy: Break into steps, check assumptions, verify units, and reason from basic truths.`,
-  };
+  });
 }

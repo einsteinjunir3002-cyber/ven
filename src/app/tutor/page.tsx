@@ -6,6 +6,7 @@ import { ArrowLeft, Sparkles, Bot, User } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { TutorInput, ContextChip } from '@/components/tutor/TutorInput';
+import { formatMathNotation } from '@/lib/math-format';
 
 interface ChatMessage {
   id: string;
@@ -48,7 +49,7 @@ export default function TutorPage() {
       const botMsg: ChatMessage = {
         id: `b-${Date.now()}`,
         role: 'assistant',
-        content: data.answer || 'Here is an explanation for your question.',
+        content: formatMathNotation(data.answer || 'Here is an explanation for your question.'),
       };
       setMessages((prev) => [...prev, botMsg]);
     } catch {
