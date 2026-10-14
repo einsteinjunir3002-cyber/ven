@@ -4,6 +4,7 @@ import './globals.css';
 import { AppProviders } from '@/components/providers/AppProviders';
 import { AppShell } from '@/components/navigation/AppShell';
 import { ServiceWorkerRegister } from '@/components/pwa/ServiceWorkerRegister';
+import { RobotAssistant } from '@/components/robot/RobotAssistant';
 
 const inter = Inter({
   subsets: ['latin'],
@@ -67,6 +68,7 @@ export default function RootLayout({
         <ServiceWorkerRegister />
         <AppProviders>
           <AppShell>{children}</AppShell>
+          <RobotAssistant />
         </AppProviders>
       </body>
     </html>
