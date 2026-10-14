@@ -30,8 +30,20 @@ export async function GET(
       .select('*')
       .eq('material_id', id);
 
+    const storagePath = material.error_code && material.error_code.startsWith('uploads/')
+      ? material.error_code
+      : null;
+
+    const fileUrl = storagePath
+      ? `https://nzxaaaencaorltbjyljx.supabase.co/storage/v1/object/public/materials/${storagePath}`
+      : null;
+
     return NextResponse.json({
-      material,
+      material: {
+        ...material,
+        file_url: fileUrl,
+        storage_path: storagePath,
+      },
       pages: pages || [],
       concepts: concepts || [],
     });

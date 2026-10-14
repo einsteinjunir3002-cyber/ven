@@ -62,6 +62,7 @@ export default function NoteReaderPage({ params }: { params: Promise<{ id: strin
   const [pages, setPages] = useState<NotePage[]>(DEFAULT_NOTE_PAGES);
   const [noteTitle, setNoteTitle] = useState('Study Notes');
   const [currentPage, setCurrentPage] = useState(1);
+  const [fileUrl, setFileUrl] = useState<string | null>(null);
   const [showOriginalScan, setShowOriginalScan] = useState(false);
   const [isAiSheetOpen, setIsAiSheetOpen] = useState(false);
   const [aiQuestion, setAiQuestion] = useState('');
@@ -78,15 +79,23 @@ export default function NoteReaderPage({ params }: { params: Promise<{ id: strin
           if (data.material?.title) {
             setNoteTitle(data.material.title);
           }
+          if (data.material?.file_url) {
+            setFileUrl(data.material.file_url);
+          }
           if (Array.isArray(data.pages) && data.pages.length > 0) {
-            setPages(
-              data.pages.map((p: { page_number: number; label?: string; content: string }) => ({
-                pageNumber: p.page_number,
-                heading: p.label || `Page ${p.page_number}`,
-                content: p.content,
-                concept: data.material.topics?.[0] || 'Core Concept',
-              }))
-            );
+            const mappedPages = data.pages.map((p: { page_number: number; label?: string; content: string }) => ({
+              pageNumber: p.page_number,
+              heading: p.label || `Page ${p.page_number}`,
+              content: p.content,
+              concept: data.material.topics?.[0] || 'Core Concept',
+            }));
+            setPages(mappedPages);
+
+            // If scanned book has no raw text, automatically open the PDF Document Reader
+            const hasAnyText = mappedPages.some((p: NotePage) => p.content && p.content.trim().length > 15);
+            if (!hasAnyText && data.material?.file_url) {
+              setShowOriginalScan(true);
+            }
             return;
           }
         }
@@ -172,26 +181,60 @@ export default function NoteReaderPage({ params }: { params: Promise<{ id: strin
 
         <button
           onClick={() => setShowOriginalScan((prev) => !prev)}
-          className={`min-touch-target px-3 py-1.5 rounded-xl text-xs font-semibold transition-colors flex items-center gap-1 ${
+          className={`min-touch-target px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-colors flex items-center gap-1.5 ${
             showOriginalScan
-              ? 'bg-[var(--brand-primary)] text-white'
-              : 'bg-[var(--bg-elevated)] text-[var(--text-secondary)]'
+              ? 'bg-[var(--brand-primary)] text-white shadow-sm'
+              : 'bg-[var(--bg-elevated)] text-[var(--text-secondary)] hover:bg-[var(--border-subtle)]'
           }`}
         >
-          <ImageIcon className="w-3.5 h-3.5" />
-          <span>{showOriginalScan ? 'Text View' : 'Original Scan'}</span>
+          {showOriginalScan ? (
+            <>
+              <FileText className="w-3.5 h-3.5" />
+              <span>Notes View</span>
+            </>
+          ) : (
+            <>
+              <BookOpen className="w-3.5 h-3.5" />
+              <span>Document Reader</span>
+            </>
+          )}
         </button>
       </div>
 
       {/* Reading Document Body */}
-      <div className="bg-[var(--bg-surface)] rounded-3xl p-6 sm:p-8 border border-[var(--border-subtle)] shadow-sm space-y-6">
+      <div className="bg-[var(--bg-surface)] rounded-3xl p-4 sm:p-7 border border-[var(--border-subtle)] shadow-sm space-y-4">
         {showOriginalScan ? (
-          <div className="py-12 text-center bg-slate-900 text-slate-300 rounded-2xl p-6 space-y-3">
-            <ImageIcon className="w-12 h-12 text-amber-400 mx-auto" />
-            <p className="text-sm font-semibold">High-Resolution Note Scan</p>
-            <p className="text-xs text-slate-400">
-              Showing page {currentPage}. Extracted text view is verified and available.
-            </p>
+          <div className="space-y-3">
+            {fileUrl ? (
+              <div className="w-full h-[72vh] rounded-2xl overflow-hidden border border-[var(--border-subtle)] bg-slate-900 shadow-lg relative">
+                <iframe
+                  src={`${fileUrl}#page=${currentPage}`}
+                  className="w-full h-full border-0 rounded-2xl"
+                  title={noteTitle}
+                />
+              </div>
+            ) : (
+              <div className="py-12 text-center bg-slate-900 text-slate-300 rounded-2xl p-6 space-y-3">
+                <ImageIcon className="w-12 h-12 text-amber-400 mx-auto" />
+                <p className="text-sm font-semibold">High-Resolution Note Scan</p>
+                <p className="text-xs text-slate-400">
+                  Showing page {currentPage}.
+                </p>
+              </div>
+            )}
+            {fileUrl && (
+              <div className="flex items-center justify-between text-xs text-[var(--text-muted)] px-1">
+                <span>📄 Interactive document reader ({pages.length} pages)</span>
+                <a
+                  href={fileUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-[var(--brand-primary)] font-semibold hover:underline inline-flex items-center gap-1"
+                >
+                  Open in New Window ↗
+                </a>
+              </div>
+            )}
           </div>
         ) : (
           <article className="prose dark:prose-invert max-w-none text-[17px] leading-[1.7] text-[var(--text-primary)]">
@@ -199,9 +242,39 @@ export default function NoteReaderPage({ params }: { params: Promise<{ id: strin
               {activePage?.heading}
             </h2>
 
-            <ReactMarkdown remarkPlugins={[remarkGfm]}>
-              {activePage?.content || ''}
-            </ReactMarkdown>
+            {activePage?.content && activePage.content.trim().length > 0 ? (
+              <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                {activePage.content}
+              </ReactMarkdown>
+            ) : (
+              <div className="py-10 px-4 text-center space-y-3 bg-[var(--bg-elevated)] rounded-2xl border border-[var(--border-subtle)]">
+                <BookOpen className="w-8 h-8 text-[var(--brand-primary)] mx-auto" />
+                <h4 className="font-semibold text-sm text-[var(--text-primary)]">
+                  Scanned Page {currentPage}
+                </h4>
+                <p className="text-xs text-[var(--text-muted)] max-w-sm mx-auto">
+                  This page consists of scanned book imagery, graphics, or road signs. Switch to the <strong>Document Reader</strong> to see the original page directly!
+                </p>
+                <div className="pt-2 flex items-center justify-center gap-2">
+                  <button
+                    onClick={() => setShowOriginalScan(true)}
+                    className="px-4 py-2 bg-[var(--brand-primary)] text-white font-bold text-xs rounded-xl shadow-sm hover:opacity-95"
+                  >
+                    Open Document Reader 📖
+                  </button>
+                  {fileUrl && (
+                    <a
+                      href={fileUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="px-3 py-2 bg-[var(--bg-surface)] border border-[var(--border-subtle)] text-[var(--text-primary)] font-medium text-xs rounded-xl"
+                    >
+                      Download PDF ↗
+                    </a>
+                  )}
+                </div>
+              </div>
+            )}
           </article>
         )}
       </div>

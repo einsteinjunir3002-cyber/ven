@@ -139,6 +139,7 @@ export async function POST(request: Request) {
         status: 'processing',
         page_count: parsed.pageCount,
         low_text: parsed.lowText,
+        error_code: storagePath || null,
       })
       .select()
       .single();

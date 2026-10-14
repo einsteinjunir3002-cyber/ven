@@ -54,7 +54,7 @@ export function RobotAssistant() {
   const [isListening, setIsListening] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [audioEnabled, setAudioEnabled] = useState(true);
-  const [wakeWordActive, setWakeWordActive] = useState(true);
+  const [wakeWordActive, setWakeWordActive] = useState(false);
   const [transcriptPreview, setTranscriptPreview] = useState('');
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [wakeDetected, setWakeDetected] = useState(false);
@@ -78,6 +78,7 @@ export function RobotAssistant() {
   const recognitionRef = useRef<any>(null);
   const restartTimeoutRef = useRef<any>(null);
   const isSpeakingRef = useRef(false);
+  const noSpeechCountRef = useRef(0);
 
   // Keep isSpeakingRef in sync with state
   useEffect(() => {
@@ -241,6 +242,11 @@ export function RobotAssistant() {
         const cleanTranscript = currentTranscript.trim();
         setTranscriptPreview(cleanTranscript);
 
+        // Reset no-speech count when speech is heard
+        if (cleanTranscript.length > 0) {
+          noSpeechCountRef.current = 0;
+        }
+
         // Regex detecting "Hey/Hello CyberVen" or "Hey/Hello Nessa" (including Cyber Ven, Nessa, Vanessa)
         const WAKE_WORD_REGEX = /(?:hey|hi|hello|ok|okay)?\s*(?:cyber\s*ven|vanessa|nessa)\b/i;
 
@@ -278,24 +284,27 @@ export function RobotAssistant() {
       };
 
       recognition.onerror = (e: any) => {
-        // Ignore expected silence / abort errors
-        if (e.error !== 'no-speech' && e.error !== 'aborted') {
+        if (e.error === 'no-speech') {
+          noSpeechCountRef.current += 1;
+        } else if (e.error !== 'aborted') {
           console.warn('Speech recognition status:', e.error);
         }
       };
 
       recognition.onend = () => {
         setIsListening(false);
-        // Automatically restart if wake word mode is active and not speaking
+        // Automatically restart with gentle backoff if wake word mode is active and not speaking
         if (wakeWordActive) {
           clearTimeout(restartTimeoutRef.current);
+          // If no speech detected in succession, back off to 3.5s to avoid Android system chimes
+          const backoff = noSpeechCountRef.current > 1 ? 3500 : 800;
           restartTimeoutRef.current = setTimeout(() => {
             if (!isSpeakingRef.current && wakeWordActive) {
               try {
                 recognition.start();
               } catch {}
             }
-          }, 400);
+          }, backoff);
         }
       };
 
@@ -303,7 +312,7 @@ export function RobotAssistant() {
     } catch {
       setIsListening(false);
     }
-  }, [wakeWordActive, isOpen, playWakeChime, speakText]);
+  }, [wakeWordActive, isOpen, speakText]);
 
   // Effect to manage wake word listener lifecycle
   useEffect(() => {
@@ -922,14 +931,23 @@ export function RobotAssistant() {
                   <button
                     type="button"
                     onClick={() => {
-                      if (wakeWordActive) {
-                        speakText("Hello there!");
-                        setStatusMessage("Hello there! Speak now... 🎙️");
+                      speakText("Hello there!");
+                      setStatusMessage("Hello there! Speak now... 🎙️");
+                      noSpeechCountRef.current = 0;
+                      if (!wakeWordActive) {
+                        setWakeWordActive(true);
                       } else {
-                        toggleWakeWordMode();
+                        try {
+                          if (recognitionRef.current) recognitionRef.current.abort();
+                        } catch {}
+                        setTimeout(() => {
+                          try {
+                            startWakeWordListener();
+                          } catch {}
+                        }, 400);
                       }
                     }}
-                    title={wakeWordActive ? "Listening for 'Hey CyberVen' or 'Hey Nessa'" : "Activate Wake Word Listening"}
+                    title="Tap to speak with CyberVen or Nessa"
                     className={`w-9 h-9 rounded-xl flex items-center justify-center transition-all ${
                       wakeWordActive
                         ? 'bg-cyan-600 text-white shadow-md shadow-cyan-500/20'
