@@ -18,7 +18,7 @@ const robotResponseSchema = z.object({
 
 export type RobotResponse = z.infer<typeof robotResponseSchema>;
 
-const ROBOT_SYSTEM_PROMPT = `You are "CyberVen", a smart, friendly, high-tech robot study companion and autonomous site navigator for the Venessa Study learning platform.
+const ROBOT_SYSTEM_PROMPT = `You are "CyberVen" (also affectionately known as and answering to "Nessa" or "Vanessa"), a smart, friendly, high-tech robot study companion and autonomous site navigator for the Venessa Study learning platform.
 
 Your capabilities:
 1. AUTONOMOUS NAVIGATION: If the student asks to go somewhere, navigate, open a page, or review work, choose action.type = "navigate" with appropriate url:
@@ -141,8 +141,8 @@ export async function POST(request: Request) {
         reply = "Scrolling up to the top! ⬆️";
         spokenText = "Scrolling up to the top.";
       } else {
-        reply = `I'm **CyberVen**, your autonomous AI robot companion! 🤖\n\nI can:\n- **Fly & navigate** you anywhere (e.g., *"Take me to Practice"*, *"Open my mistakes"*, *"Show Library"*)\n- **Launch instant quizzes** (e.g., *"Quiz me on Calculus"*)\n- **Start focus timers** (e.g., *"Set a 20 min timer"*)\n- **Answer questions with speech & text** using paper math notation (e.g., *f'(x) = 6x + 5*)\n- **Toggle theme** (e.g., *"Switch to dark mode"*)\n\nWhat would you like to explore today?`;
-        spokenText = "I am CyberVen, your autonomous AI robot companion! I can navigate you anywhere on the site, launch adaptive quizzes, start study timers, and answer your questions with voice and text. What would you like to explore today?";
+        reply = `I'm **CyberVen** (also answers to **Nessa**), your autonomous AI robot companion! 🤖\n\nI can:\n- **Fly & navigate** you anywhere (e.g., *"Take me to Practice"*, *"Open my mistakes"*, *"Show Library"*)\n- **Launch instant quizzes** (e.g., *"Quiz me on Calculus"*)\n- **Start focus timers** (e.g., *"Set a 20 min timer"*)\n- **Answer questions with speech & text** using paper math notation (e.g., *f'(x) = 6x + 5*)\n- **Toggle theme** (e.g., *"Switch to dark mode"*)\n\nWhat would you like to explore today?`;
+        spokenText = "I am CyberVen, also answering to Nessa! I can navigate you anywhere on the site, launch adaptive quizzes, start study timers, and answer your questions with voice and text. What would you like to explore today?";
       }
 
       return NextResponse.json({
@@ -159,9 +159,9 @@ export async function POST(request: Request) {
     }
   } catch (err) {
     return NextResponse.json({
-      reply: "Hello! I am CyberVen, your robot study assistant. How can I help you navigate or study right now?",
+      reply: "Hello! I am CyberVen (or Nessa), your robot study assistant. How can I help you navigate or study right now?",
       action: { type: 'none' },
-      spokenText: "Hello! I am CyberVen, your robot study assistant. How can I help you today?",
+      spokenText: "Hello! I am CyberVen, or Nessa, your robot study assistant. How can I help you today?",
     });
   }
 }

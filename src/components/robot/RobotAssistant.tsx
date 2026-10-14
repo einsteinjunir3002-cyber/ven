@@ -45,7 +45,7 @@ export function RobotAssistant() {
     {
       id: 'welcome',
       sender: 'robot',
-      text: "Beep boop! 🤖 I am **CyberVen**, your autonomous AI robot assistant!\n\n🎙️ **Always Audio Active**: You can say **\"Hey CyberVen\"** anytime to wake me up for a live voice chat! You can also drag me anywhere on screen.",
+      text: "Beep boop! 🤖 I am **CyberVen** (also answers to **Nessa**), your autonomous AI robot assistant!\n\n🎙️ **Always Audio Active**: Say **\"Hey CyberVen\"** or **\"Hey Nessa\"** (or *Hello*) anytime to wake me up for a live voice chat! You can also drag me anywhere on screen.",
       time: 'Just now',
     },
   ]);
@@ -265,26 +265,32 @@ export function RobotAssistant() {
         const cleanTranscript = currentTranscript.trim();
         setTranscriptPreview(cleanTranscript);
 
-        // Regex detecting "Hey CyberVen", "CyberVen", "Hello CyberVen", "Hi CyberVen"
-        const WAKE_WORD_REGEX = /(?:hey|hi|hello|ok|okay)?\s*cyber\s*ven/i;
+        // Regex detecting "Hey/Hello CyberVen" or "Hey/Hello Nessa" (including Cyber Ven, Nessa, Vanessa)
+        const WAKE_WORD_REGEX = /(?:hey|hi|hello|ok|okay)?\s*(?:cyber\s*ven|vanessa|nessa)\b/i;
 
         if (WAKE_WORD_REGEX.test(cleanTranscript)) {
           setWakeDetected(true);
           playWakeChime();
           setIsOpen(true);
-          setStatusMessage("🎙️ Wake word detected: 'Hey CyberVen'!");
+
+          const isNessa = /nessa|vanessa/i.test(cleanTranscript);
+          const detectedWord = isNessa ? 'Nessa' : 'CyberVen';
+          setStatusMessage(`🎙️ Wake word detected: "${detectedWord}"!`);
 
           // Extract any query spoken in the same breath after the wake word
-          const match = cleanTranscript.match(/(?:hey|hi|hello|ok|okay)?\s*cyber\s*ven\s*[,:]?\s*(.*)/i);
+          const match = cleanTranscript.match(/(?:hey|hi|hello|ok|okay)?\s*(?:cyber\s*ven|vanessa|nessa)\s*[,:]?\s*(.*)/i);
           const trailingQuery = match && match[1] ? match[1].trim() : '';
 
           if (trailingQuery.length > 2) {
             setTranscriptPreview('');
             handleSendMessage(trailingQuery);
           } else {
-            // User just said "Hey CyberVen", greet and listen for follow up
-            speakText("Hey Venessa! I'm listening. What can I help you with?");
-            setStatusMessage("I'm listening! Speak your request... 🎙️");
+            // User just said the wake word, greet and listen for follow up
+            const greeting = isNessa
+              ? "Hey! Nessa here, I'm listening. What can I do for you?"
+              : "Hey! CyberVen here, I'm listening. What can I do for you?";
+            speakText(greeting);
+            setStatusMessage(`I'm listening as ${detectedWord}! Speak your request... 🎙️`);
           }
 
           setTimeout(() => {
@@ -357,7 +363,7 @@ export function RobotAssistant() {
     } catch {}
 
     if (nextState) {
-      setStatusMessage("🎙️ Always Listening for 'Hey CyberVen' is ON!");
+      setStatusMessage("🎙️ Always Listening for 'Hey CyberVen' or 'Hey Nessa' is ON!");
       playWakeChime();
     } else {
       setStatusMessage("Wake word listening paused.");
@@ -598,7 +604,7 @@ export function RobotAssistant() {
             className="absolute -top-6 left-1/2 -translate-x-1/2 whitespace-nowrap px-2 py-0.5 bg-slate-900/90 text-cyan-300 border border-cyan-500/40 font-mono text-[9px] font-bold rounded-full shadow-md flex items-center gap-1 cursor-pointer hover:border-cyan-400"
           >
             <Radio className="w-2.5 h-2.5 text-cyan-400 animate-pulse" />
-            <span>Say &quot;Hey CyberVen&quot;</span>
+            <span>Say &quot;Hey CyberVen&quot; or &quot;Hey Nessa&quot;</span>
           </div>
         )}
 
@@ -626,7 +632,7 @@ export function RobotAssistant() {
           onPointerUp={handlePointerUp}
           title={
             wakeWordActive
-              ? "CyberVen - Always Listening for 'Hey CyberVen' (Click to open, drag to move)"
+              ? "CyberVen / Nessa - Always Listening for 'Hey CyberVen' or 'Hey Nessa' (Click to open, drag to move)"
               : 'CyberVen AI Robot - Click to talk or drag anywhere'
           }
           className={`w-16 h-16 sm:w-16 sm:h-16 rounded-3xl relative flex items-center justify-center cursor-grab active:cursor-grabbing shadow-2xl transition-all duration-300 ${
@@ -738,7 +744,7 @@ export function RobotAssistant() {
                   />
                 </h3>
                 <p className="text-[10px] text-emerald-200 mt-0.5 flex items-center gap-1">
-                  <span>Say &quot;Hey CyberVen&quot;</span>
+                  <span>Say &quot;Hey CyberVen&quot; or &quot;Hey Nessa&quot;</span>
                   {wakeWordActive && <span className="text-cyan-300 font-bold">• Active</span>}
                 </p>
               </div>
@@ -749,7 +755,7 @@ export function RobotAssistant() {
               <button
                 type="button"
                 onClick={toggleWakeWordMode}
-                title={wakeWordActive ? "Wake word active (listening for 'Hey CyberVen')" : "Wake word paused (click to activate)"}
+                title={wakeWordActive ? "Wake word active (listening for 'Hey CyberVen' or 'Hey Nessa')" : "Wake word paused (click to activate)"}
                 className={`p-1.5 rounded-lg text-xs font-semibold flex items-center gap-1 transition-colors ${
                   wakeWordActive ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-400/40' : 'hover:bg-white/10 text-white/60'
                 }`}
@@ -801,7 +807,7 @@ export function RobotAssistant() {
                 <div className="flex items-center gap-1.5">
                   <Headphones className="w-3.5 h-3.5 text-cyan-400 animate-pulse" />
                   <span>
-                    Wake word ready: Say <strong>&ldquo;Hey CyberVen&rdquo;</strong> to speak
+                    Wake word ready: Say <strong>&ldquo;Hey CyberVen&rdquo;</strong> or <strong>&ldquo;Hey Nessa&rdquo;</strong> to speak
                   </span>
                 </div>
                 <span className="w-2 h-2 rounded-full bg-cyan-400 animate-ping" />
@@ -951,7 +957,7 @@ export function RobotAssistant() {
                         toggleWakeWordMode();
                       }
                     }}
-                    title={wakeWordActive ? "Listening for 'Hey CyberVen'" : "Activate Wake Word Listening"}
+                    title={wakeWordActive ? "Listening for 'Hey CyberVen' or 'Hey Nessa'" : "Activate Wake Word Listening"}
                     className={`w-9 h-9 rounded-xl flex items-center justify-center transition-all ${
                       wakeWordActive
                         ? 'bg-cyan-600 text-white shadow-md shadow-cyan-500/20'
@@ -967,7 +973,7 @@ export function RobotAssistant() {
                     onChange={(e) => setInputText(e.target.value)}
                     placeholder={
                       wakeWordActive
-                        ? "Say 'Hey CyberVen' or type here..."
+                        ? "Say 'Hey CyberVen' or 'Hey Nessa', or type..."
                         : 'Ask or tell robot where to go...'
                     }
                     className="flex-1 px-3.5 py-2 bg-[var(--bg-elevated)] border border-[var(--border-subtle)] rounded-xl text-xs outline-none focus:border-[var(--brand-primary)] text-[var(--text-primary)]"

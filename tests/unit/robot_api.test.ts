@@ -67,4 +67,27 @@ describe('Autonomous Robot AI Assistant API', () => {
     expect(data.reply).toBeTruthy();
     expect(data.reply).not.toContain('^');
   });
+
+  it('answers to both CyberVen and Nessa wake words', async () => {
+    const reqNessa = new Request('http://localhost/api/ai/robot', {
+      method: 'POST',
+      body: JSON.stringify({ message: 'Hello Nessa, what can you do?' }),
+    });
+
+    const resNessa = await POST(reqNessa);
+    const dataNessa = await resNessa.json();
+    expect(resNessa.status).toBe(200);
+    expect(dataNessa.reply).toBeTruthy();
+
+    const reqCyberVen = new Request('http://localhost/api/ai/robot', {
+      method: 'POST',
+      body: JSON.stringify({ message: 'Hey CyberVen, take me to dashboard' }),
+    });
+
+    const resCyberVen = await POST(reqCyberVen);
+    const dataCyberVen = await resCyberVen.json();
+    expect(resCyberVen.status).toBe(200);
+    expect(dataCyberVen.action.type).toBe('navigate');
+    expect(dataCyberVen.action.url).toBe('/dashboard');
+  });
 });
