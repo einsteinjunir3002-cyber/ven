@@ -12,17 +12,10 @@ import {
   Send,
   X,
   Minimize2,
-  Compass,
   Clock,
-  Moon,
-  Sun,
-  Play,
-  RotateCcw,
-  Zap,
-  ArrowRight,
-  BookOpen,
-  HelpCircle,
-  GripHorizontal,
+  Radio,
+  Activity,
+  Headphones,
 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -52,7 +45,7 @@ export function RobotAssistant() {
     {
       id: 'welcome',
       sender: 'robot',
-      text: "Beep boop! 🤖 I am **CyberVen**, your autonomous AI robot assistant!\n\nI can **fly you around the site**, start **practice quizzes**, time your study sessions, or answer questions with speech and text. Click or drag me anywhere on screen!",
+      text: "Beep boop! 🤖 I am **CyberVen**, your autonomous AI robot assistant!\n\n🎙️ **Always Audio Active**: You can say **\"Hey CyberVen\"** anytime to wake me up for a live voice chat! You can also drag me anywhere on screen.",
       time: 'Just now',
     },
   ]);
@@ -61,8 +54,10 @@ export function RobotAssistant() {
   const [isListening, setIsListening] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [audioEnabled, setAudioEnabled] = useState(true);
+  const [wakeWordActive, setWakeWordActive] = useState(true);
   const [transcriptPreview, setTranscriptPreview] = useState('');
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
+  const [wakeDetected, setWakeDetected] = useState(false);
 
   // Focus Timer state
   const [activeTimerSeconds, setActiveTimerSeconds] = useState<number | null>(null);
@@ -81,6 +76,42 @@ export function RobotAssistant() {
   const hasDraggedRef = useRef(false);
   const chatScrollRef = useRef<HTMLDivElement>(null);
   const recognitionRef = useRef<any>(null);
+  const restartTimeoutRef = useRef<any>(null);
+  const isSpeakingRef = useRef(false);
+
+  // Keep isSpeakingRef in sync with state
+  useEffect(() => {
+    isSpeakingRef.current = isSpeaking;
+  }, [isSpeaking]);
+
+  // Play Futuristic Melodic Wake Chime (C5 -> G5 -> C6) using Web Audio API
+  const playWakeChime = useCallback(() => {
+    try {
+      const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+      if (!AudioCtx) return;
+      const ctx = new AudioCtx();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.type = 'sine';
+
+      // 3-tone arpeggio
+      const t = ctx.currentTime;
+      osc.frequency.setValueAtTime(523.25, t); // C5
+      osc.frequency.exponentialRampToValueAtTime(783.99, t + 0.1); // G5
+      osc.frequency.exponentialRampToValueAtTime(1046.5, t + 0.2); // C6
+
+      gain.gain.setValueAtTime(0.25, t);
+      gain.gain.exponentialRampToValueAtTime(0.01, t + 0.35);
+
+      osc.start(t);
+      osc.stop(t + 0.35);
+    } catch {
+      // Audio context may require initial user click
+    }
+  }, []);
 
   // Initialize position on screen (bottom right default)
   useEffect(() => {
@@ -93,11 +124,14 @@ export function RobotAssistant() {
           return;
         }
       }
+      const savedWake = localStorage.getItem('venessa_wake_word_active');
+      if (savedWake !== null) {
+        setWakeWordActive(savedWake === 'true');
+      }
     } catch {
       // ignore
     }
 
-    // Default: bottom right with safety margins
     if (typeof window !== 'undefined') {
       setPosition({
         x: Math.max(16, window.innerWidth - 88),
@@ -144,89 +178,192 @@ export function RobotAssistant() {
   }, [messages, isLoading, transcriptPreview]);
 
   // Text-To-Speech function
-  const speakText = useCallback((text: string) => {
-    if (!audioEnabled || typeof window === 'undefined' || !('speechSynthesis' in window)) return;
+  const speakText = useCallback(
+    (text: string) => {
+      if (!audioEnabled || typeof window === 'undefined' || !('speechSynthesis' in window)) return;
 
-    try {
-      window.speechSynthesis.cancel();
-      const clean = text
-        .replace(/[*#_`~\[\]\(\)]/g, ' ')
-        .replace(/https?:\/\/\S+/g, '')
-        .trim();
+      try {
+        window.speechSynthesis.cancel();
+        const clean = text
+          .replace(/[*#_`~\[\]\(\)]/g, ' ')
+          .replace(/https?:\/\/\S+/g, '')
+          .trim();
 
-      const utterance = new SpeechSynthesisUtterance(clean);
-      utterance.rate = 1.05;
-      utterance.pitch = 1.05;
+        const utterance = new SpeechSynthesisUtterance(clean);
+        utterance.rate = 1.05;
+        utterance.pitch = 1.05;
 
-      utterance.onstart = () => setIsSpeaking(true);
-      utterance.onend = () => setIsSpeaking(false);
-      utterance.onerror = () => setIsSpeaking(false);
+        utterance.onstart = () => {
+          setIsSpeaking(true);
+          isSpeakingRef.current = true;
+        };
 
-      window.speechSynthesis.speak(utterance);
-    } catch {
-      setIsSpeaking(false);
-    }
-  }, [audioEnabled]);
+        utterance.onend = () => {
+          setIsSpeaking(false);
+          isSpeakingRef.current = false;
+        };
+
+        utterance.onerror = () => {
+          setIsSpeaking(false);
+          isSpeakingRef.current = false;
+        };
+
+        window.speechSynthesis.speak(utterance);
+      } catch {
+        setIsSpeaking(false);
+        isSpeakingRef.current = false;
+      }
+    },
+    [audioEnabled]
+  );
 
   const stopSpeaking = () => {
     if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
       window.speechSynthesis.cancel();
       setIsSpeaking(false);
+      isSpeakingRef.current = false;
     }
   };
 
-  // Toggle Speech-To-Text (Microphone)
-  const toggleListening = () => {
-    if (isListening) {
-      if (recognitionRef.current) {
-        recognitionRef.current.stop();
-      }
-      setIsListening(false);
-      return;
-    }
-
+  // ---------------------------------------------------------------------------
+  // CONTINUOUS WAKE WORD & AUDIO LISTENER ("Hey CyberVen")
+  // ---------------------------------------------------------------------------
+  const startWakeWordListener = useCallback(() => {
+    if (typeof window === 'undefined') return;
     const SpeechRecognition =
       (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
 
-    if (!SpeechRecognition) {
-      alert('Speech recognition is not supported in this browser. You can type your request directly!');
-      return;
+    if (!SpeechRecognition) return;
+
+    // Clean up previous instance
+    if (recognitionRef.current) {
+      try {
+        recognitionRef.current.abort();
+      } catch {}
     }
 
     try {
       const recognition = new SpeechRecognition();
       recognitionRef.current = recognition;
-      recognition.continuous = false;
+      recognition.continuous = true;
       recognition.interimResults = true;
       recognition.lang = 'en-US';
 
       recognition.onstart = () => {
         setIsListening(true);
-        setTranscriptPreview('');
       };
 
       recognition.onresult = (event: any) => {
-        const current = event.resultIndex;
-        const transcript = event.results[current][0].transcript;
-        setTranscriptPreview(transcript);
-        if (event.results[current].isFinal) {
-          handleSendMessage(transcript);
+        // If robot is currently speaking, do not parse own audio
+        if (isSpeakingRef.current) return;
+
+        let currentTranscript = '';
+        for (let i = event.resultIndex; i < event.results.length; i++) {
+          currentTranscript += event.results[i][0].transcript;
+        }
+
+        const cleanTranscript = currentTranscript.trim();
+        setTranscriptPreview(cleanTranscript);
+
+        // Regex detecting "Hey CyberVen", "CyberVen", "Hello CyberVen", "Hi CyberVen"
+        const WAKE_WORD_REGEX = /(?:hey|hi|hello|ok|okay)?\s*cyber\s*ven/i;
+
+        if (WAKE_WORD_REGEX.test(cleanTranscript)) {
+          setWakeDetected(true);
+          playWakeChime();
+          setIsOpen(true);
+          setStatusMessage("🎙️ Wake word detected: 'Hey CyberVen'!");
+
+          // Extract any query spoken in the same breath after the wake word
+          const match = cleanTranscript.match(/(?:hey|hi|hello|ok|okay)?\s*cyber\s*ven\s*[,:]?\s*(.*)/i);
+          const trailingQuery = match && match[1] ? match[1].trim() : '';
+
+          if (trailingQuery.length > 2) {
+            setTranscriptPreview('');
+            handleSendMessage(trailingQuery);
+          } else {
+            // User just said "Hey CyberVen", greet and listen for follow up
+            speakText("Hey Venessa! I'm listening. What can I help you with?");
+            setStatusMessage("I'm listening! Speak your request... 🎙️");
+          }
+
+          setTimeout(() => {
+            setWakeDetected(false);
+            setStatusMessage(null);
+          }, 3500);
+        } else if (isOpen && event.results[event.results.length - 1].isFinal && cleanTranscript.length > 3) {
+          // If HUD is already open, accept direct speech commands
+          handleSendMessage(cleanTranscript);
         }
       };
 
-      recognition.onerror = () => {
-        setIsListening(false);
-        setTranscriptPreview('');
+      recognition.onerror = (e: any) => {
+        // Ignore expected silence / abort errors
+        if (e.error !== 'no-speech' && e.error !== 'aborted') {
+          console.warn('Speech recognition status:', e.error);
+        }
       };
 
       recognition.onend = () => {
         setIsListening(false);
+        // Automatically restart if wake word mode is active and not speaking
+        if (wakeWordActive) {
+          clearTimeout(restartTimeoutRef.current);
+          restartTimeoutRef.current = setTimeout(() => {
+            if (!isSpeakingRef.current && wakeWordActive) {
+              try {
+                recognition.start();
+              } catch {}
+            }
+          }, 400);
+        }
       };
 
       recognition.start();
     } catch {
       setIsListening(false);
     }
+  }, [wakeWordActive, isOpen, playWakeChime, speakText]);
+
+  // Effect to manage wake word listener lifecycle
+  useEffect(() => {
+    if (wakeWordActive) {
+      startWakeWordListener();
+    } else {
+      if (recognitionRef.current) {
+        try {
+          recognitionRef.current.abort();
+        } catch {}
+      }
+      setIsListening(false);
+    }
+
+    return () => {
+      clearTimeout(restartTimeoutRef.current);
+      if (recognitionRef.current) {
+        try {
+          recognitionRef.current.abort();
+        } catch {}
+      }
+    };
+  }, [wakeWordActive, startWakeWordListener]);
+
+  // Toggle Wake Word Mode
+  const toggleWakeWordMode = () => {
+    const nextState = !wakeWordActive;
+    setWakeWordActive(nextState);
+    try {
+      localStorage.setItem('venessa_wake_word_active', String(nextState));
+    } catch {}
+
+    if (nextState) {
+      setStatusMessage("🎙️ Always Listening for 'Hey CyberVen' is ON!");
+      playWakeChime();
+    } else {
+      setStatusMessage("Wake word listening paused.");
+      stopSpeaking();
+    }
+    setTimeout(() => setStatusMessage(null), 3000);
   };
 
   // Autonomous Robot Movement Animation across screen
@@ -246,7 +383,6 @@ export function RobotAssistant() {
 
     if (action.type === 'navigate' && action.url) {
       setStatusMessage(`🚀 Navigating to ${action.url}...`);
-      // Animate robot toward navigation target
       animateRobotFly(
         window.innerWidth / 2 - 32,
         Math.max(60, window.innerHeight * 0.3),
@@ -314,10 +450,6 @@ export function RobotAssistant() {
 
     setInputText('');
     setTranscriptPreview('');
-    if (isListening && recognitionRef.current) {
-      recognitionRef.current.stop();
-      setIsListening(false);
-    }
 
     const userMsg: Message = {
       id: `usr-${Date.now()}`,
@@ -376,7 +508,6 @@ export function RobotAssistant() {
 
   // Drag Handlers
   const handlePointerDown = (e: React.PointerEvent) => {
-    // Only drag from icon or header handle
     hasDraggedRef.current = false;
     setIsDragging(true);
     dragStartRef.current = {
@@ -409,20 +540,15 @@ export function RobotAssistant() {
     setIsDragging(false);
     try {
       (e.target as HTMLElement).releasePointerCapture(e.pointerId);
-    } catch {
-      // ignore
-    }
+    } catch {}
 
-    // Save position
     try {
       localStorage.setItem('venessa_robot_pos', JSON.stringify(position));
-    } catch {
-      // ignore
-    }
+    } catch {}
 
-    // If wasn't a significant drag, treat as click
     if (!hasDraggedRef.current) {
       setIsOpen((prev) => !prev);
+      playWakeChime();
     }
   };
 
@@ -462,6 +588,20 @@ export function RobotAssistant() {
           </div>
         )}
 
+        {/* Wake Word Listening Badge */}
+        {wakeWordActive && !statusMessage && (
+          <div
+            onClick={(e) => {
+              e.stopPropagation();
+              setIsOpen(true);
+            }}
+            className="absolute -top-6 left-1/2 -translate-x-1/2 whitespace-nowrap px-2 py-0.5 bg-slate-900/90 text-cyan-300 border border-cyan-500/40 font-mono text-[9px] font-bold rounded-full shadow-md flex items-center gap-1 cursor-pointer hover:border-cyan-400"
+          >
+            <Radio className="w-2.5 h-2.5 text-cyan-400 animate-pulse" />
+            <span>Say &quot;Hey CyberVen&quot;</span>
+          </div>
+        )}
+
         {/* Focus Timer Mini Badge (if timer running) */}
         {activeTimerSeconds !== null && activeTimerSeconds > 0 && (
           <div
@@ -469,7 +609,7 @@ export function RobotAssistant() {
               e.stopPropagation();
               setIsOpen(true);
             }}
-            className="absolute -top-6 -right-2 px-2 py-0.5 bg-amber-500 text-white font-mono text-[10px] font-bold rounded-full shadow-md flex items-center gap-1 cursor-pointer"
+            className="absolute -bottom-6 left-1/2 -translate-x-1/2 px-2 py-0.5 bg-amber-500 text-white font-mono text-[10px] font-bold rounded-full shadow-md flex items-center gap-1 cursor-pointer"
           >
             <Clock className="w-2.5 h-2.5 animate-spin" />
             <span>
@@ -484,25 +624,33 @@ export function RobotAssistant() {
           onPointerDown={handlePointerDown}
           onPointerMove={handlePointerMove}
           onPointerUp={handlePointerUp}
-          title="CyberVen AI Robot - Click to talk or drag anywhere"
-          className={`w-16 h-16 sm:w-16 sm:h-16 rounded-3xl relative flex items-center justify-center cursor-grab active:cursor-grabbing shadow-xl transition-all duration-300 ${
-            isOpen
+          title={
+            wakeWordActive
+              ? "CyberVen - Always Listening for 'Hey CyberVen' (Click to open, drag to move)"
+              : 'CyberVen AI Robot - Click to talk or drag anywhere'
+          }
+          className={`w-16 h-16 sm:w-16 sm:h-16 rounded-3xl relative flex items-center justify-center cursor-grab active:cursor-grabbing shadow-2xl transition-all duration-300 ${
+            wakeDetected
+              ? 'ring-4 ring-cyan-300 scale-110 bg-gradient-to-br from-cyan-500 to-teal-800 text-white animate-bounce'
+              : isOpen
               ? 'ring-4 ring-[var(--brand-primary)] bg-gradient-to-br from-teal-700 to-emerald-950 text-white'
               : isSpeaking
               ? 'ring-4 ring-cyan-400 bg-gradient-to-br from-cyan-600 to-teal-900 text-white animate-pulse'
-              : isListening
-              ? 'ring-4 ring-rose-500 bg-gradient-to-br from-rose-600 to-amber-900 text-white animate-bounce'
+              : wakeWordActive
+              ? 'ring-2 ring-cyan-400/60 bg-gradient-to-br from-teal-600 via-emerald-700 to-slate-900 text-white hover:scale-105'
               : 'bg-gradient-to-br from-teal-600 via-emerald-700 to-slate-900 text-white hover:scale-105'
           }`}
         >
-          {/* Glowing Antenna */}
+          {/* Glowing Antenna with Radar Waves when always active */}
           <div className="absolute -top-3.5 flex flex-col items-center">
             <span
               className={`w-3 h-3 rounded-full transition-all duration-300 shadow-md ${
-                isSpeaking
+                wakeDetected
+                  ? 'bg-cyan-200 ring-6 ring-cyan-400 animate-ping'
+                  : isSpeaking
                   ? 'bg-cyan-300 ring-4 ring-cyan-400/50 animate-ping'
-                  : isListening
-                  ? 'bg-rose-400 ring-4 ring-rose-500/50 animate-ping'
+                  : wakeWordActive
+                  ? 'bg-cyan-400 ring-4 ring-cyan-400/40 animate-pulse'
                   : 'bg-emerald-400 ring-2 ring-emerald-300/40'
               }`}
             />
@@ -510,24 +658,28 @@ export function RobotAssistant() {
           </div>
 
           {/* Robot Face Display */}
-          <div className="w-12 h-10 rounded-2xl bg-slate-950/90 border border-teal-400/30 flex flex-col items-center justify-center p-1 relative overflow-hidden shadow-inner">
+          <div className="w-12 h-10 rounded-2xl bg-slate-950/90 border border-teal-400/40 flex flex-col items-center justify-center p-1 relative overflow-hidden shadow-inner">
             {/* Expressive Glowing Eyes */}
             <div className="flex items-center gap-2">
               <span
                 className={`w-2 h-2.5 rounded-full transition-all duration-200 ${
-                  isSpeaking
+                  wakeDetected
+                    ? 'bg-cyan-200 shadow-[0_0_12px_#a5f3fc] scale-125'
+                    : isSpeaking
                     ? 'bg-cyan-300 shadow-[0_0_8px_#67e8f9]'
-                    : isListening
-                    ? 'bg-rose-400 shadow-[0_0_8px_#fb7185]'
+                    : wakeWordActive
+                    ? 'bg-cyan-400 shadow-[0_0_8px_#38bdf8]'
                     : 'bg-emerald-400 shadow-[0_0_8px_#34d399]'
                 }`}
               />
               <span
                 className={`w-2 h-2.5 rounded-full transition-all duration-200 ${
-                  isSpeaking
+                  wakeDetected
+                    ? 'bg-cyan-200 shadow-[0_0_12px_#a5f3fc] scale-125'
+                    : isSpeaking
                     ? 'bg-cyan-300 shadow-[0_0_8px_#67e8f9]'
-                    : isListening
-                    ? 'bg-rose-400 shadow-[0_0_8px_#fb7185]'
+                    : wakeWordActive
+                    ? 'bg-cyan-400 shadow-[0_0_8px_#38bdf8]'
                     : 'bg-emerald-400 shadow-[0_0_8px_#34d399]'
                 }`}
               />
@@ -542,7 +694,7 @@ export function RobotAssistant() {
                   <span className="w-1 h-1.5 bg-cyan-300 rounded-full animate-bounce [animation-delay:0.2s]" />
                 </>
               ) : isListening ? (
-                <span className="w-4 h-1 bg-rose-400 rounded-full animate-pulse" />
+                <span className="w-4 h-1 bg-cyan-400 rounded-full animate-pulse" />
               ) : (
                 <span className="w-3 h-0.5 bg-emerald-400/60 rounded-full" />
               )}
@@ -570,7 +722,7 @@ export function RobotAssistant() {
               : 'bottom-4 right-4 sm:right-6 w-[calc(100vw-32px)] sm:w-96 h-[540px] max-h-[85vh]'
           }`}
         >
-          {/* Header & Drag Grip */}
+          {/* Header & Controls */}
           <div className="p-3.5 px-4 bg-gradient-to-r from-teal-800 to-emerald-900 text-white rounded-t-3xl flex items-center justify-between shrink-0">
             <div className="flex items-center gap-2">
               <div className="w-7 h-7 rounded-xl bg-white/10 flex items-center justify-center font-bold text-xs">
@@ -579,13 +731,33 @@ export function RobotAssistant() {
               <div>
                 <h3 className="font-display font-bold text-sm leading-none flex items-center gap-1.5">
                   <span>CyberVen Robot</span>
-                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                  <span
+                    className={`w-2 h-2 rounded-full ${
+                      wakeWordActive ? 'bg-cyan-400 animate-pulse' : 'bg-slate-400'
+                    }`}
+                  />
                 </h3>
-                <p className="text-[10px] text-emerald-200 mt-0.5">Autonomous Study Companion</p>
+                <p className="text-[10px] text-emerald-200 mt-0.5 flex items-center gap-1">
+                  <span>Say &quot;Hey CyberVen&quot;</span>
+                  {wakeWordActive && <span className="text-cyan-300 font-bold">• Active</span>}
+                </p>
               </div>
             </div>
 
             <div className="flex items-center gap-1">
+              {/* Wake Word Toggle Button */}
+              <button
+                type="button"
+                onClick={toggleWakeWordMode}
+                title={wakeWordActive ? "Wake word active (listening for 'Hey CyberVen')" : "Wake word paused (click to activate)"}
+                className={`p-1.5 rounded-lg text-xs font-semibold flex items-center gap-1 transition-colors ${
+                  wakeWordActive ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-400/40' : 'hover:bg-white/10 text-white/60'
+                }`}
+              >
+                <Radio className={`w-3.5 h-3.5 ${wakeWordActive ? 'animate-pulse text-cyan-300' : ''}`} />
+                <span className="text-[10px] hidden sm:inline">{wakeWordActive ? 'Always Listening' : 'Wake Word Off'}</span>
+              </button>
+
               {/* Audio Speech Toggle */}
               <button
                 type="button"
@@ -624,6 +796,17 @@ export function RobotAssistant() {
 
           {!isMinimized && (
             <>
+              {/* Wake Word Audio Banner Status */}
+              <div className="px-3.5 py-1.5 bg-gradient-to-r from-teal-900/60 to-slate-900/60 border-b border-[var(--border-subtle)] flex items-center justify-between text-[11px] text-cyan-200 shrink-0">
+                <div className="flex items-center gap-1.5">
+                  <Headphones className="w-3.5 h-3.5 text-cyan-400 animate-pulse" />
+                  <span>
+                    Wake word ready: Say <strong>&ldquo;Hey CyberVen&rdquo;</strong> to speak
+                  </span>
+                </div>
+                <span className="w-2 h-2 rounded-full bg-cyan-400 animate-ping" />
+              </div>
+
               {/* Active Timer HUD bar (if set) */}
               {activeTimerSeconds !== null && (
                 <div className="px-4 py-2 bg-amber-50 dark:bg-amber-950/40 border-b border-amber-200 dark:border-amber-800 text-amber-900 dark:text-amber-200 flex items-center justify-between text-xs shrink-0">
@@ -710,10 +893,10 @@ export function RobotAssistant() {
                   );
                 })}
 
-                {/* Live Transcript Preview while speaking into mic */}
-                {isListening && transcriptPreview && (
-                  <div className="p-2.5 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 text-rose-800 dark:text-rose-200 text-xs flex items-center gap-2 animate-pulse">
-                    <Mic className="w-3.5 h-3.5 text-rose-600 animate-spin" />
+                {/* Live Transcript Preview while speaking */}
+                {transcriptPreview && (
+                  <div className="p-2.5 rounded-xl bg-cyan-50 dark:bg-cyan-950/40 border border-cyan-200 dark:border-cyan-800 text-cyan-800 dark:text-cyan-200 text-xs flex items-center gap-2 animate-pulse">
+                    <Radio className="w-3.5 h-3.5 text-cyan-600 animate-spin" />
                     <span>&ldquo;{transcriptPreview}&rdquo;</span>
                   </div>
                 )}
@@ -741,7 +924,7 @@ export function RobotAssistant() {
                   <button
                     type="button"
                     onClick={stopSpeaking}
-                    className="text-[10px] font-bold text-rose-600 dark:text-rose-400 hover:underline"
+                    className="text-[10px] font-bold text-rose-600 dark:text-rose-400 hover:underline cursor-pointer"
                   >
                     Stop Audio
                   </button>
@@ -760,22 +943,33 @@ export function RobotAssistant() {
                   {/* Microphone speech input toggle */}
                   <button
                     type="button"
-                    onClick={toggleListening}
-                    title={isListening ? 'Stop listening' : 'Speak to Robot Assistant'}
+                    onClick={() => {
+                      if (wakeWordActive) {
+                        setStatusMessage("Speak now! Listening... 🎙️");
+                        playWakeChime();
+                      } else {
+                        toggleWakeWordMode();
+                      }
+                    }}
+                    title={wakeWordActive ? "Listening for 'Hey CyberVen'" : "Activate Wake Word Listening"}
                     className={`w-9 h-9 rounded-xl flex items-center justify-center transition-all ${
-                      isListening
-                        ? 'bg-rose-600 text-white animate-pulse'
-                        : 'bg-[var(--bg-elevated)] hover:bg-[var(--brand-light)] text-[var(--text-secondary)] hover:text-[var(--brand-primary)]'
+                      wakeWordActive
+                        ? 'bg-cyan-600 text-white shadow-md shadow-cyan-500/20'
+                        : 'bg-[var(--bg-elevated)] hover:bg-[var(--brand-light)] text-[var(--text-secondary)]'
                     }`}
                   >
-                    {isListening ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
+                    <Mic className="w-4 h-4" />
                   </button>
 
                   <input
                     type="text"
                     value={inputText}
                     onChange={(e) => setInputText(e.target.value)}
-                    placeholder={isListening ? 'Listening to voice...' : 'Ask or tell robot where to go...'}
+                    placeholder={
+                      wakeWordActive
+                        ? "Say 'Hey CyberVen' or type here..."
+                        : 'Ask or tell robot where to go...'
+                    }
                     className="flex-1 px-3.5 py-2 bg-[var(--bg-elevated)] border border-[var(--border-subtle)] rounded-xl text-xs outline-none focus:border-[var(--brand-primary)] text-[var(--text-primary)]"
                   />
 
