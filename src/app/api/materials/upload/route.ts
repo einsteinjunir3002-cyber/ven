@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { createAdminClient } from '@/lib/supabase/admin';
+import { createAdminClient, DEFAULT_GUEST_USER_ID } from '@/lib/supabase/admin';
 import { parsePdfBuffer, parseDocxBuffer, parsePptxBuffer, parseTextContent, ParsedDocument } from '@/server/documents/parser';
 import { chunkDocumentPages } from '@/server/documents/chunker';
 import { generateEmbedding, generateStructured } from '@/server/ai/provider';
@@ -37,7 +37,10 @@ export async function POST(request: Request) {
     const file = formData.get('file') as File | null;
     const pastedText = formData.get('text') as string | null;
     const customTitle = formData.get('title') as string | null;
-    const userId = formData.get('userId') as string || '00000000-0000-0000-0000-000000000000';
+    const rawUserId = formData.get('userId') as string | null;
+    const userId = (!rawUserId || rawUserId === '00000000-0000-0000-0000-000000000000')
+      ? DEFAULT_GUEST_USER_ID
+      : rawUserId;
 
     let parsed: ParsedDocument;
     let sourceType: 'pdf' | 'docx' | 'pptx' | 'images' | 'text' = 'text';

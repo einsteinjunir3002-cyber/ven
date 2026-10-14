@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { randomUUID } from 'crypto';
-import { createAdminClient } from '@/lib/supabase/admin';
+import { createAdminClient, DEFAULT_GUEST_USER_ID } from '@/lib/supabase/admin';
 import { generateStructured } from '@/server/ai/provider';
 import { QUIZ_GEN_SYSTEM_PROMPT, quizGenResponseSchema, QuizGenResponse } from '@/server/ai/prompts/quiz_gen';
 import { generateDynamicQuestions } from '@/server/ai/generators/dynamic_questions';
@@ -15,6 +15,10 @@ import {
 export async function POST(request: Request) {
   try {
     const body = await request.json();
+    const rawUserId = body.userId;
+    const userId = (!rawUserId || rawUserId === '00000000-0000-0000-0000-000000000000')
+      ? DEFAULT_GUEST_USER_ID
+      : rawUserId;
     const {
       sourceType = 'topic',
       subject = 'General Science',
@@ -25,7 +29,6 @@ export async function POST(request: Request) {
       types = 'mixed',
       isExam = false,
       contextNotes = '',
-      userId = '00000000-0000-0000-0000-000000000000',
     } = body;
 
     const requestedCount = Math.min(Math.max(Number(count) || 5, 1), 20);
@@ -161,12 +164,14 @@ Ensure each question has a clear, comprehensive pedagogical explanation explaini
         .select()
         .single();
 
-      if (!quizErr && dbQuiz) {
+      if (quizErr) {
+        console.error('Supabase quiz insert error:', quizErr);
+      } else if (dbQuiz) {
         for (let i = 0; i < storedQuestions.length; i++) {
           const q = storedQuestions[i];
           const k = storedAnswerKeys[i];
 
-          await supabaseAdmin.from('questions').insert({
+          const { error: qErr } = await supabaseAdmin.from('questions').insert({
             id: q.id,
             quiz_id: quizId,
             user_id: userId,
@@ -180,8 +185,9 @@ Ensure each question has a clear, comprehensive pedagogical explanation explaini
             difficulty: q.difficulty,
             max_marks: q.max_marks,
           });
+          if (qErr) console.error('Supabase question insert error:', qErr);
 
-          await supabaseAdmin.from('question_answer_keys').insert({
+          const { error: kErr } = await supabaseAdmin.from('question_answer_keys').insert({
             question_id: q.id,
             quiz_id: quizId,
             user_id: userId,
@@ -192,9 +198,10 @@ Ensure each question has a clear, comprehensive pedagogical explanation explaini
             explanation: k.explanation,
             remember_tip: k.remember_tip,
           });
+          if (kErr) console.error('Supabase answer key insert error:', kErr);
         }
 
-        await supabaseAdmin.from('attempts').insert({
+        const { error: attErr } = await supabaseAdmin.from('attempts').insert({
           id: attemptId,
           user_id: userId,
           quiz_id: quizId,
@@ -204,9 +211,10 @@ Ensure each question has a clear, comprehensive pedagogical explanation explaini
           deadline,
           duration_seconds: durationSeconds,
         });
+        if (attErr) console.error('Supabase attempt insert error:', attErr);
       }
-    } catch {
-      // Supabase unconfigured or offline in dev/preview: local memory store active
+    } catch (err) {
+      console.error('Supabase persistence error in quiz generation:', err);
     }
 
     return NextResponse.json({

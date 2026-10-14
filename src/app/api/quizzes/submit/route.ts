@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { randomUUID } from 'crypto';
-import { createAdminClient } from '@/lib/supabase/admin';
+import { createAdminClient, DEFAULT_GUEST_USER_ID } from '@/lib/supabase/admin';
 import { generateStructured } from '@/server/ai/provider';
 import { MARKING_SYSTEM_PROMPT, markingResultSchema, MarkingResult } from '@/server/ai/prompts/marking';
 import { quizStore, StoredAttemptAnswer } from '@/server/quiz-store';
@@ -13,7 +13,12 @@ interface SubmittedAnswerInput {
 
 export async function POST(request: Request) {
   try {
-    const { attemptId, answers, userId = '00000000-0000-0000-0000-000000000000' } = await request.json();
+    const body = await request.json();
+    const { attemptId, answers } = body;
+    const rawUserId = body.userId;
+    const userId = (!rawUserId || rawUserId === '00000000-0000-0000-0000-000000000000')
+      ? DEFAULT_GUEST_USER_ID
+      : rawUserId;
 
     if (!attemptId || !Array.isArray(answers)) {
       return NextResponse.json({ error: 'Missing attemptId or answers array' }, { status: 400 });
